@@ -160,14 +160,39 @@ To enable automated releases with [Semantic Release](https://github.com/semantic
 
 ## 🚀 Deployment
 
-Deploy your Next.js app instantly with **Vercel**:
+### Deploy with Vercel
 
-### Deployment Steps
+1. Go to [vercel.com/new](https://vercel.com/new) and import the repository
+2. Configure environment variables in the Vercel dashboard
+3. Deploy — your app will be live in minutes with automatic CI/CD
 
-1. Click the "Deploy with Vercel" button above
-2. Connect your GitHub repository
-3. Configure environment variables in the Vercel dashboard
-4. Deploy — your app will be live in minutes with automatic CI/CD
+### Deploy with Docker
+
+Build and run the app as a container with a single command:
+
+```bash
+npm run docker:up
+```
+
+This uses `docker-compose.yml` to build the production image (multi-stage `Dockerfile`, based on Next.js
+[`standalone` output](https://nextjs.org/docs/app/api-reference/config/next-config-js/output)) and start it, exposing
+the app on [http://localhost:3000](http://localhost:3000).
+
+Other Docker commands:
+
+```bash
+npm run docker:build   # Build the image only, without starting a container
+npm run docker:down    # Stop and remove the running container
+```
+
+Notes:
+
+- The image runs as a non-root user and exposes a container `HEALTHCHECK` against `/api/health`.
+- Build-time environment validation ([T3 Env](#-environment-variables)) is skipped via `SKIP_ENV_VALIDATION=true`
+  inside the `Dockerfile`; supply real runtime variables to the container (e.g. via `docker-compose.yml`'s
+  `environment`/`env_file`, or `docker run --env-file .env.local`).
+- To build the image manually without Compose: `docker build -t bulk-actions-table .` then
+  `docker run --rm -p 3000:3000 bulk-actions-table`.
 
 ---
 
@@ -219,6 +244,14 @@ Deploy your Next.js app instantly with **Vercel**:
 | `npm run storybook:dev`   | Start Storybook (port 6006)       |
 | `npm run storybook:build` | Build static Storybook            |
 | `npm run storybook:serve` | Serve the built Storybook locally |
+
+### Docker
+
+| Script                  | Description                                           |
+| ------------------------ | ------------------------------------------------------ |
+| `npm run docker:up`      | Build and start the app with Docker Compose            |
+| `npm run docker:down`    | Stop and remove the Docker Compose containers          |
+| `npm run docker:build`   | Build the production Docker image without running it   |
 
 ---
 
@@ -502,6 +535,8 @@ bulk-actions-table/
 ├── types/                # Global TypeScript type declarations
 ├── utils/                # Shared utility functions
 ├── biome.json            # Biome linter and formatter configuration
+├── docker-compose.yml    # Single-command Docker build and run
+├── Dockerfile            # Multi-stage production Docker image
 ├── next.config.ts        # Next.js configuration
 ├── playwright.config.ts  # Playwright E2E test configuration
 ├── postcss.config.js     # PostCSS and Tailwind CSS configuration
@@ -526,7 +561,9 @@ bulk-actions-table/
 ### Important Configuration Files
 
 - **`biome.json`** — Biome linter and formatter rules (replaces ESLint + Prettier)
-- **`next.config.ts`** — Next.js config (React Compiler, bundle analyzer, health rewrites)
+- **`Dockerfile`** / **`docker-compose.yml`** — Multi-stage production Docker image and single-command run/build
+  ([details](#-deployment))
+- **`next.config.ts`** — Next.js config (React Compiler, bundle analyzer, health rewrites, standalone output)
 - **`playwright.config.ts`** — Playwright E2E test configuration
 - **`postcss.config.js`** — PostCSS plugins and Tailwind CSS processing
 - **`tsconfig.json`** — TypeScript compiler options including `~/` path alias
