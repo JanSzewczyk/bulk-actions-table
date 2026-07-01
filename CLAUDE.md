@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Next.js Szumplate is an enterprise-ready Next.js 16.2.9 template with React 19.2.7, TypeScript 6.0, Tailwind CSS 4.3.2,
-React Compiler, and comprehensive testing infrastructure (Vitest 4.1, Playwright 1.61).
+Bulk Actions Table is a Next.js 16.2.9 application with React 19.2.7, TypeScript 6.0, Tailwind CSS 4.3.2, React
+Compiler, and comprehensive testing infrastructure (Vitest 4.1, Playwright 1.61).
 
 ## Commands
 

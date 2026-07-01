@@ -46,7 +46,7 @@
     "typescript": "^6.0.3",
     "vitest": "^4.1.8"
   },
-  "name": "nextjs-szumplate",
+  "name": "bulk-actions-table",
   "private": true,
   "scripts": {
     "analyze": "next experimental-analyze",

@@ -5,8 +5,8 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#1a202c", // Matches Tailwind's bg-app-background
     description: "A Next.js application with Tailwind CSS and optimized setup.",
     display: "standalone",
-    name: "Next.js Szumplate",
-    short_name: "Szumplate.js",
+    name: "Bulk Actions Table",
+    short_name: "Bulk Actions Table",
     start_url: "/",
     theme_color: "#1a202c" // Matches Tailwind's bg-app-background
   };

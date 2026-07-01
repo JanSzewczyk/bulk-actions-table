@@ -5,8 +5,8 @@ import { ThemeProvider } from "~/components/providers/theme-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  description: "Template for Next App by Szum-Tech",
-  title: "Szumplate Next App"
+  description: "Bulk Actions Table by Szum-Tech",
+  title: "Bulk Actions Table"
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

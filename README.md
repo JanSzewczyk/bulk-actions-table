@@ -1,13 +1,11 @@
 <div align="center">
 
-# 🚀 Next.js Szumplate
+# 🚀 Bulk Actions Table
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new?utm_source=github&utm_campaign=nextjs-szumplate)
-[![GitHub stars](https://img.shields.io/github/stars/JanSzewczyk/nextjs-szumplate?style=social)](https://github.com/JanSzewczyk/nextjs-szumplate/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/JanSzewczyk/nextjs-szumplate/actions/workflows/pr-check.yml/badge.svg)](https://github.com/JanSzewczyk/nextjs-szumplate/actions/workflows/pr-check.yml)
+[![CI](https://github.com/JanSzewczyk/bulk-actions-table/actions/workflows/pr-check.yml/badge.svg)](https://github.com/JanSzewczyk/bulk-actions-table/actions/workflows/pr-check.yml)
 
-**An enterprise-ready Next.js template that accelerates your development workflow**
+**A Next.js application for performing bulk actions on tabular data**
 
 [Features](#-features) • [Getting Started](#-getting-started) • [Documentation](#-table-of-contents) •
 [Deployment](#-deployment)
@@ -18,61 +16,60 @@
 
 ## 👋 Hello there!
 
-This is **Next.js Szumplate**, an open-source template for enterprise projects! It is packed with features that will
-help you create an efficient, maintainable, and enjoyable application. This template will save you a lot of time, so sit
-back, relax, and get ready to conquer the whole world with your new awesome app!
+This is **Bulk Actions Table**, a Next.js application built with an enterprise-ready foundation. It is packed with
+features that keep the codebase efficient, maintainable, and enjoyable to work in.
 
 ## ✨ Features
 
 ### 🏗️ Core Technologies
 
-- [![Next.js](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/next?logo=nextdotjs&logoColor=white&label=Next.js)](https://nextjs.org/)
+- [![Next.js](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/next?logo=nextdotjs&logoColor=white&label=Next.js)](https://nextjs.org/)
   — App Router, Server Components, Server Actions, and Turbopack for fast builds
-- [![React](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/react?logo=react&logoColor=white&label=React)](https://react.dev/)
+- [![React](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/react?logo=react&logoColor=white&label=React)](https://react.dev/)
   — React 19 with React Compiler for automatic memoization without manual optimization
-- [![TypeScript](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/dev/typescript?logo=typescript&logoColor=white&label=TypeScript)](https://www.typescriptlang.org/)
+- [![TypeScript](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/typescript?logo=typescript&logoColor=white&label=TypeScript)](https://www.typescriptlang.org/)
   — Strict mode with `ts-reset` library for ultimate type safety
-- [![Tailwind CSS](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/dev/tailwindcss?logo=tailwindcss&logoColor=white&label=Tailwind%20CSS)](https://tailwindcss.com/)
+- [![Tailwind CSS](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/tailwindcss?logo=tailwindcss&logoColor=white&label=Tailwind%20CSS)](https://tailwindcss.com/)
   — CSS-first configuration with design tokens and utility-first styling
-- [![Design System](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/@szum-tech/design-system?label=Design%20System)](https://szum-tech-design-system.vercel.app/)
+- [![Design System](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/@szum-tech/design-system?label=Design%20System)](https://szum-tech-design-system.vercel.app/)
   — Pre-built accessible components and design tokens from Szum-Tech
-- [![Zod](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/zod?logo=zod&logoColor=white&label=Zod)](https://zod.dev/)
+- [![Zod](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/zod?logo=zod&logoColor=white&label=Zod)](https://zod.dev/)
   — TypeScript-first schema validation
-- [![React Hook Form](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/react-hook-form?label=React%20Hook%20Form)](https://react-hook-form.com/)
+- [![React Hook Form](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/react-hook-form?label=React%20Hook%20Form)](https://react-hook-form.com/)
   — Performant forms with easy validation
 - **🎯 Absolute imports** — `~/` path alias for clean, spaghetti-free imports
 
 ### 🧪 Testing & Quality
 
-- [![Vitest](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/dev/vitest?logo=vitest&logoColor=white&label=Vitest)](https://vitest.dev/)
+- [![Vitest](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/vitest?logo=vitest&logoColor=white&label=Vitest)](https://vitest.dev/)
   — Rock-solid, high-speed unit and integration tests with browser mode
-- [![React Testing Library](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/dev/@testing-library/react?label=React%20Testing%20Library)](https://testing-library.com/react)
+- [![React Testing Library](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/@testing-library/react?label=React%20Testing%20Library)](https://testing-library.com/react)
   — Component testing with accessibility-first queries
-- [![Playwright](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/dev/@playwright/test?logo=playwright&logoColor=white&label=Playwright)](https://playwright.dev/)
+- [![Playwright](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/@playwright/test?logo=playwright&logoColor=white&label=Playwright)](https://playwright.dev/)
   — End-to-end tests with cross-browser support and Playwright UI
-- [![Storybook](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/dev/storybook?logo=storybook&logoColor=white&label=Storybook)](https://storybook.js.org/)
+- [![Storybook](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/storybook?logo=storybook&logoColor=white&label=Storybook)](https://storybook.js.org/)
   — Component development, documentation, and interaction testing
-- [![Biome](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/dev/@biomejs/biome?logo=biome&logoColor=white&label=Biome)](https://biomejs.dev/)
+- [![Biome](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/@biomejs/biome?logo=biome&logoColor=white&label=Biome)](https://biomejs.dev/)
   — All-in-one linter and formatter replacing ESLint + Prettier
 
 ### 🤖 Automation & DevOps
 
 - [![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?logo=github-actions&logoColor=white)](https://github.com/features/actions)
   — Pre-configured CI/CD workflows (PR checks, CodeQL, semantic releases)
-- [![Semantic Release](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/dev/semantic-release?label=Semantic%20Release)](https://github.com/semantic-release/semantic-release)
+- [![Semantic Release](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/semantic-release?label=Semantic%20Release)](https://github.com/semantic-release/semantic-release)
   — Automated versioning and CHANGELOG generation via Conventional Commits
 - [![Dependabot](https://img.shields.io/badge/Dependabot-025E8C?logo=dependabot&logoColor=white)](https://github.com/dependabot)
   — Automated dependency security updates
 
 ### 🔧 Developer Experience
 
-- [![T3 Env](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/@t3-oss/env-nextjs?label=T3%20Env)](https://env.t3.gg/)
+- [![T3 Env](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/@t3-oss/env-nextjs?label=T3%20Env)](https://env.t3.gg/)
   — Type-safe environment variable management with build-time validation
-- [![Bundle Analyzer](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/@next/bundle-analyzer?label=Bundle%20Analyzer)](https://www.npmjs.com/package/@next/bundle-analyzer)
-  — Bundle size analysis for Client, Server, and Edge environments
-- [![Pino](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/pino?label=Pino)](https://getpino.io/)
+- **📊 Bundle Analyzer** — Built-in Next.js 16 `next experimental-analyze` command for Client, Server, and Edge bundle
+  size analysis (no extra dependency required)
+- [![Pino](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/pino?label=Pino)](https://getpino.io/)
   — High-performance structured JSON logging with automatic request tracking
-- [![next-themes](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/nextjs-szumplate/next-themes?label=next-themes)](https://github.com/pacocoursey/next-themes)
+- [![next-themes](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/next-themes?label=next-themes)](https://github.com/pacocoursey/next-themes)
   — Dark/light/system theme switching with localStorage persistence
 - **⚕️ Health Checks** — Kubernetes-compatible endpoint at `/api/health` with aliases `/healthz`, `/health`, `/ping`
 - **🔒 Server-only Guards** — Prevents server code from leaking into client bundles
@@ -116,24 +113,20 @@ Before you begin, ensure you have the following installed:
 
 ### 📦 Installation
 
-#### 1. Star and Fork the Repository
-
-Don't forget to star ⭐ and fork the repository first!
-
-#### 2. Clone the Repository
+#### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/<your_username>/nextjs-szumplate.git
-cd nextjs-szumplate
+git clone https://github.com/JanSzewczyk/bulk-actions-table.git
+cd bulk-actions-table
 ```
 
-#### 3. Install Dependencies
+#### 2. Install Dependencies
 
 ```bash
 npm ci
 ```
 
-#### 4. Configure Environment Variables
+#### 3. Configure Environment Variables
 
 Create a `.env.local` file in the root directory:
 
@@ -143,7 +136,7 @@ Create a `.env.local` file in the root directory:
 # LOG_LEVEL=debug
 ```
 
-#### 5. Start Development Server
+#### 4. Start Development Server
 
 ```bash
 npm run dev
@@ -168,8 +161,6 @@ To enable automated releases with [Semantic Release](https://github.com/semantic
 ## 🚀 Deployment
 
 Deploy your Next.js app instantly with **Vercel**:
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new?utm_source=github&utm_campaign=nextjs-szumplate)
 
 ### Deployment Steps
 
@@ -426,7 +417,7 @@ Three pre-configured workflows automate quality checks and releases:
 
 ### ✅ PR Check (`pr-check.yml`)
 
-[![CI](https://github.com/JanSzewczyk/nextjs-szumplate/actions/workflows/pr-check.yml/badge.svg)](https://github.com/JanSzewczyk/nextjs-szumplate/actions/workflows/pr-check.yml)
+[![CI](https://github.com/JanSzewczyk/bulk-actions-table/actions/workflows/pr-check.yml/badge.svg)](https://github.com/JanSzewczyk/bulk-actions-table/actions/workflows/pr-check.yml)
 
 Runs on every pull request and validates:
 
@@ -442,7 +433,7 @@ Runs on every pull request and validates:
 
 ### 🔒 CodeQL (`codeql.yml`)
 
-[![CodeQL](https://github.com/JanSzewczyk/nextjs-szumplate/actions/workflows/codeql.yml/badge.svg)](https://github.com/JanSzewczyk/nextjs-szumplate/actions/workflows/codeql.yml)
+[![CodeQL](https://github.com/JanSzewczyk/bulk-actions-table/actions/workflows/codeql.yml/badge.svg)](https://github.com/JanSzewczyk/bulk-actions-table/actions/workflows/codeql.yml)
 
 Automated security scanning powered by GitHub CodeQL, running on push and schedule.
 
@@ -490,7 +481,7 @@ Any Client Component that imports this module will fail the build — catching t
 ## 📁 Project Structure
 
 ```
-nextjs-szumplate/
+bulk-actions-table/
 ├── .claude/              # Claude Code configuration (agents, skills, hooks)
 ├── .github/
 │   └── workflows/        # GitHub Actions workflows (CI/CD)
@@ -565,7 +556,7 @@ This project is licensed under the **MIT License**. For more information, see th
 
 ## 🙏 Acknowledgments
 
-This template is built with amazing tools and libraries from the open-source community:
+This project is built with amazing tools and libraries from the open-source community:
 
 - [Next.js](https://nextjs.org/) - The React Framework
 - [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
@@ -581,8 +572,8 @@ This template is built with amazing tools and libraries from the open-source com
 
 If you have any questions, suggestions, or issues:
 
-- 🐛 [Open an issue](https://github.com/JanSzewczyk/nextjs-szumplate/issues)
-- ⭐ [Star this repository](https://github.com/JanSzewczyk/nextjs-szumplate)
+- 🐛 [Open an issue](https://github.com/JanSzewczyk/bulk-actions-table/issues)
+- ⭐ [Star this repository](https://github.com/JanSzewczyk/bulk-actions-table)
 - 👨‍💻 Check out my [GitHub profile](https://github.com/JanSzewczyk)
 
 ---
@@ -591,8 +582,6 @@ If you have any questions, suggestions, or issues:
 
 **Made with ❤️ by [Szum-Tech](https://github.com/szum-tech)**
 
-If this template helped you, please consider giving it a ⭐ on GitHub!
-
-[⬆ Back to Top](#-nextjs-szumplate)
+[⬆ Back to Top](#-bulk-actions-table)
 
 </div>
