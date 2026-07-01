@@ -1,0 +1,40 @@
+.git
+.github
+.claude
+.idea
+.vscode
+
+node_modules
+.next
+storybook-static
+coverage
+coverage-unit
+coverage-storybook
+test-results
+playwright-report
+.playwright-mcp
+
+tests
+stories
+
+# NOTE: keep .storybook/ — co-located *.stories.tsx files (e.g.
+# components/ui/theme-toggle.stories.tsx) import "~/.storybook/preview", and
+# tsconfig.json's `include` covers it. `next build`'s type-check needs it
+# present even though Storybook itself never runs inside the container.
+
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+.env
+.env.local
+.env.*.local
+!.env.example
+
+Dockerfile
+docker-compose.yml
+.dockerignore
+README.md
+SECURITY.md
+LICENSE
