@@ -17,6 +17,14 @@ npm run build        # Production build
 npm run start        # Start production server
 ```
 
+### Docker
+
+```bash
+npm run docker:up     # Build and run the app in a container (docker compose up --build)
+npm run docker:down   # Stop and remove the container
+npm run docker:build  # Build the production image only
+```
+
 ### Code Quality
 
 ```bash
@@ -176,6 +184,7 @@ The app uses `next-themes` for dark/light/system theme switching:
 - React Compiler enabled (`reactCompiler: true`)
 - Pino externalized for server-side logging
 - Bundle analyzer available via `ANALYZE=true`
+- `output: "standalone"` — required for the production `Dockerfile`
 
 ## Conventions
 
