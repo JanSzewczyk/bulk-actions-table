@@ -1,17 +1,17 @@
 import { Button } from "@szum-tech/design-system/components/button";
 import { Header } from "@szum-tech/design-system/components/header";
 import type { Metadata } from "next";
+import * as React from "react";
 import { GithubIcon } from "~/components/ui/icons/github";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
-import { TicketsTableSection } from "~/features/tickets/components";
+import { DevPanelContainer, DevPanelFallback, TicketsTableSection } from "~/features/tickets/components";
 import { SelectionProvider } from "~/features/tickets/hooks/use-selection";
 import { parseTableQuery } from "~/features/tickets/schemas";
-import { getSimulationParams, getTeammates, getTicketsPage } from "~/features/tickets/server";
+import { getTeammates, getTicketsPage } from "~/features/tickets/server";
 import { bulkActionAction } from "~/features/tickets/server/actions/bulk-action.action";
 import { getJobFailedIdsAction } from "~/features/tickets/server/actions/get-job-failed-ids.action";
 import { outsideFilterCountAction } from "~/features/tickets/server/actions/outside-filter-count.action";
 import { pollJobAction } from "~/features/tickets/server/actions/poll-job.action";
-import { updateSimulationParamsAction } from "~/features/tickets/server/actions/update-simulation-params.action";
 import { createLogger } from "~/lib/logger";
 
 export const metadata: Metadata = {
@@ -24,14 +24,14 @@ async function loadData(searchParams: PageProps<"/">["searchParams"]) {
   const params = await searchParams;
   const query = parseTableQuery(params);
 
-  const [error, page] = await getTicketsPage(query);
+  const [[error, page], [teammatesError, teammates]] = await Promise.all([getTicketsPage(query), getTeammates()]);
+
   if (error) {
     logger.error({ errorCode: error.code, isRetryable: error.isRetryable }, "Failed to load tickets page");
     // Let the error boundary render the fallback with a retry.
     throw new Error("Failed to load tickets");
   }
 
-  const [teammatesError, teammates] = await getTeammates();
   if (teammatesError) {
     logger.error(
       { errorCode: teammatesError.code, isRetryable: teammatesError.isRetryable },
@@ -40,21 +40,12 @@ async function loadData(searchParams: PageProps<"/">["searchParams"]) {
     throw new Error("Failed to load teammates");
   }
 
-  const [simulationError, simulation] = await getSimulationParams();
-  if (simulationError) {
-    logger.error(
-      { errorCode: simulationError.code, isRetryable: simulationError.isRetryable },
-      "Failed to load simulation params"
-    );
-    throw new Error("Failed to load simulation settings");
-  }
-
   logger.info({ page: query.page, size: query.size, total: page.pagination.total }, "Loaded tickets page");
-  return { page, query, simulation, teammates };
+  return { page, query, teammates };
 }
 
 export default async function TicketsPage({ searchParams }: PageProps<"/">) {
-  const { query, page, teammates, simulation } = await loadData(searchParams);
+  const { query, page, teammates } = await loadData(searchParams);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -78,9 +69,15 @@ export default async function TicketsPage({ searchParams }: PageProps<"/">) {
       </Header>
 
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8" id="main-content">
-        <div className="mb-6 flex flex-col gap-1">
-          <h1 className="text-heading-h1">Tickets</h1>
-          <p className="text-mute">Manage support tickets and run bulk actions on many at once.</p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-heading-h1">Tickets</h1>
+            <p className="text-mute">Manage support tickets and run bulk actions on many at once.</p>
+          </div>
+
+          <React.Suspense fallback={<DevPanelFallback />}>
+            <DevPanelContainer />
+          </React.Suspense>
         </div>
 
         <SelectionProvider>
@@ -89,10 +86,8 @@ export default async function TicketsPage({ searchParams }: PageProps<"/">) {
             onGetJobFailedIdsAction={getJobFailedIdsAction}
             onOutsideFilterCountAction={outsideFilterCountAction}
             onPollJobAction={pollJobAction}
-            onUpdateSimulationAction={updateSimulationParamsAction}
             pagination={page.pagination}
             query={query}
-            simulation={simulation}
             teammates={teammates}
             tickets={page.data}
           />

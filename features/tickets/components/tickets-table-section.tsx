@@ -8,12 +8,7 @@ import { useJobPolling } from "~/features/tickets/hooks/use-job-polling";
 import { useSelection } from "~/features/tickets/hooks/use-selection";
 import { mergeTableQuery, stringifyTableQuery } from "~/features/tickets/lib/table-query-url";
 import { formatCount } from "~/features/tickets/lib/ticket-presentation";
-import {
-  BulkAction,
-  type BulkActionOutcome,
-  type BulkRequest,
-  type SimulationParams
-} from "~/features/tickets/types/bulk";
+import { BulkAction, type BulkActionOutcome, type BulkRequest } from "~/features/tickets/types/bulk";
 import type { JobProgress } from "~/features/tickets/types/job";
 import { SelectionMode } from "~/features/tickets/types/selection";
 import {
@@ -27,7 +22,6 @@ import type { Teammate } from "~/features/tickets/types/teammate";
 import type { TicketListItem } from "~/features/tickets/types/ticket";
 import type { ActionResponse } from "~/lib/action-types";
 import { BulkToolbar } from "./bulk-toolbar";
-import { DevPanel } from "./dev-panel";
 import { JobProgressBar } from "./job-progress-bar";
 import { SelectionBanner } from "./selection-banner";
 import { TableControls } from "./table-controls";
@@ -39,12 +33,10 @@ type TicketsTableSectionProps = {
   pagination: Pagination;
   query: TableQuery;
   teammates: Array<Teammate>;
-  simulation: SimulationParams;
   onBulkAction(request: BulkRequest, idempotencyKey: string): ActionResponse<BulkActionOutcome>;
   onOutsideFilterCountAction(ids: Array<string>, filter: TableFilter): ActionResponse<number>;
   onPollJobAction(jobId: string): ActionResponse<JobProgress>;
   onGetJobFailedIdsAction(jobId: string): ActionResponse<Array<string>>;
-  onUpdateSimulationAction(params: SimulationParams): ActionResponse<SimulationParams>;
 };
 
 type ActiveJob = { jobId: string; action: BulkAction; assigneeId?: string };
@@ -85,12 +77,10 @@ export function TicketsTableSection({
   pagination,
   query,
   teammates,
-  simulation,
   onBulkAction,
   onOutsideFilterCountAction,
   onPollJobAction,
-  onGetJobFailedIdsAction,
-  onUpdateSimulationAction
+  onGetJobFailedIdsAction
 }: TicketsTableSectionProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -263,10 +253,7 @@ export function TicketsTableSection({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <TableControls isPending={isPending} onQueryChange={applyQuery} query={query} />
-        <DevPanel initialSimulation={simulation} onUpdateSimulationAction={onUpdateSimulationAction} />
-      </div>
+      <TableControls isPending={isPending} onQueryChange={applyQuery} query={query} />
       {jobProgress ? <JobProgressBar progress={jobProgress} /> : null}
       <BulkToolbar
         isSubmitting={isSubmitting}

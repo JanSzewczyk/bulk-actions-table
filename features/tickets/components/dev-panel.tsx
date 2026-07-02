@@ -58,7 +58,7 @@ function FieldLabel({ htmlFor, label, explanation }: FieldLabelProps) {
         <TooltipTrigger aria-label={`What is "${label}"?`}>
           <InfoIcon aria-hidden={true} className="size-3.5 text-muted-foreground" />
         </TooltipTrigger>
-        <TooltipContent>{explanation}</TooltipContent>
+        <TooltipContent className="max-w-xs text-pretty">{explanation}</TooltipContent>
       </Tooltip>
     </span>
   );
