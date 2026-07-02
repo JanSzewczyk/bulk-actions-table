@@ -1,4 +1,5 @@
 import type { BulkAction, FailureItem } from "./bulk";
+import type { Pagination } from "./table-query";
 
 /**
  * Async job model. Progress endpoints return counters — never arrays — so a large N with a high
@@ -27,4 +28,10 @@ export type Job = JobProgress & {
   id: string;
   action: BulkAction;
   failures: Array<FailureItem>;
+};
+
+/** Response shape of `GET /api/jobs/:id/failures`. */
+export type JobFailuresPage = {
+  data: Array<FailureItem>;
+  pagination: Pagination;
 };

@@ -19,21 +19,21 @@ import { type Ticket, TicketStatus } from "~/features/tickets/types/ticket";
  */
 
 const SUBJECT_PREFIXES = [
-  "Nie działa logowanie",
-  "Błąd płatności",
-  "Prośba o zwrot środków",
-  "Problem z fakturą",
-  "Konto zostało zablokowane",
-  "Nie otrzymałem wiadomości e-mail",
-  "Awaria integracji API",
-  "Pytanie o subskrypcję",
-  "Reklamacja zamówienia",
-  "Zmiana danych rozliczeniowych",
-  "Eksport danych nie działa",
-  "Powiadomienia nie przychodzą",
-  "Prośba o zwiększenie limitu",
-  "Błąd 500 na stronie płatności",
-  "Nie mogę zresetować hasła"
+  "Login isn't working",
+  "Payment error",
+  "Refund request",
+  "Invoice issue",
+  "Account has been locked",
+  "Didn't receive the confirmation email",
+  "API integration outage",
+  "Question about subscription",
+  "Order complaint",
+  "Billing details change",
+  "Data export isn't working",
+  "Notifications aren't arriving",
+  "Request to increase limit",
+  "500 error on the payment page",
+  "Can't reset my password"
 ];
 
 const CREATED_FROM = "2024-01-01T00:00:00.000Z";

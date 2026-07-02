@@ -1,6 +1,5 @@
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@szum-tech/design-system/components/avatar";
 import { Badge } from "@szum-tech/design-system/components/badge";
 import { Button } from "@szum-tech/design-system/components/button";
 import { Checkbox } from "@szum-tech/design-system/components/checkbox";
@@ -16,15 +15,11 @@ import { cn } from "@szum-tech/design-system/utils";
 import { ChevronDownIcon, ChevronsUpDownIcon, ChevronUpIcon } from "lucide-react";
 import { useSelection } from "~/features/tickets/hooks/use-selection";
 import { isSelected, PageCheckboxState, pageCheckboxState } from "~/features/tickets/lib/selection";
-import {
-  formatTicketDate,
-  initials,
-  STATUS_BADGE_VARIANT,
-  STATUS_LABELS
-} from "~/features/tickets/lib/ticket-presentation";
+import { formatTicketDate, STATUS_BADGE_VARIANT, STATUS_LABELS } from "~/features/tickets/lib/ticket-presentation";
 import type { Teammate } from "~/features/tickets/types";
 import { SortDirection, type TableQuery, type TicketSortField } from "~/features/tickets/types/table-query";
 import type { TicketListItem } from "~/features/tickets/types/ticket";
+import { TeammateItem } from "./teammate-item";
 
 type TicketsTableProps = {
   tickets: Array<TicketListItem>;
@@ -38,7 +33,7 @@ type TicketsTableProps = {
 type SortableHeaderProps = {
   field: TicketSortField;
   label: string;
-  activeField: TicketSortField;
+  activeField: TicketSortField | null;
   direction: TableQuery["direction"];
   onSortChange(field: TicketSortField): void;
 };
@@ -80,6 +75,7 @@ function SortableHeader({ field, label, activeField, direction, onSortChange }: 
 export function TicketsTable({ tickets, sort, direction, isPending, onSortChange, teammates }: TicketsTableProps) {
   const { selection, dispatch } = useSelection();
   const pageIds = tickets.map((ticket) => ticket.id);
+  const teammateById = new Map(teammates.map((teammate) => [teammate.id, teammate]));
   const headerState = pageCheckboxState(selection, pageIds);
   const headerChecked =
     headerState === PageCheckboxState.CHECKED
@@ -94,7 +90,7 @@ export function TicketsTable({ tickets, sort, direction, isPending, onSortChange
         <TableRow>
           <TableHead className="w-10">
             <Checkbox
-              aria-label="Zaznacz bieżącą stronę"
+              aria-label="Select current page"
               checked={headerChecked}
               disabled={pageIds.length === 0}
               onCheckedChange={(checked) =>
@@ -106,10 +102,10 @@ export function TicketsTable({ tickets, sort, direction, isPending, onSortChange
             activeField={sort}
             direction={direction}
             field="subject"
-            label="Temat"
+            label="Subject"
             onSortChange={onSortChange}
           />
-          <TableHead>Klient</TableHead>
+          <TableHead>Customer</TableHead>
           <SortableHeader
             activeField={sort}
             direction={direction}
@@ -117,12 +113,12 @@ export function TicketsTable({ tickets, sort, direction, isPending, onSortChange
             label="Status"
             onSortChange={onSortChange}
           />
-          <TableHead>Przypisany</TableHead>
+          <TableHead>Assignee</TableHead>
           <SortableHeader
             activeField={sort}
             direction={direction}
             field="createdAt"
-            label="Utworzono"
+            label="Created"
             onSortChange={onSortChange}
           />
         </TableRow>
@@ -134,12 +130,13 @@ export function TicketsTable({ tickets, sort, direction, isPending, onSortChange
         {tickets.length === 0 ? (
           <TableRow>
             <TableCell className="py-10 text-center text-muted-foreground" colSpan={6}>
-              Brak zgłoszeń spełniających kryteria.
+              No tickets match the current filters.
             </TableCell>
           </TableRow>
         ) : (
           tickets.map((ticket) => {
             const selected = isSelected(selection, ticket.id);
+            const assignee = ticket.assigneeId === null ? null : (teammateById.get(ticket.assigneeId) ?? null);
             return (
               <TableRow
                 className={cn(selected && "bg-muted/40")}
@@ -148,7 +145,7 @@ export function TicketsTable({ tickets, sort, direction, isPending, onSortChange
               >
                 <TableCell>
                   <Checkbox
-                    aria-label={`Zaznacz zgłoszenie ${ticket.subject}`}
+                    aria-label={`Select ticket ${ticket.subject}`}
                     checked={selected}
                     onCheckedChange={() => dispatch({ id: ticket.id, type: "TOGGLE_ROW" })}
                   />
@@ -159,16 +156,10 @@ export function TicketsTable({ tickets, sort, direction, isPending, onSortChange
                   <Badge variant={STATUS_BADGE_VARIANT[ticket.status]}>{STATUS_LABELS[ticket.status]}</Badge>
                 </TableCell>
                 <TableCell>
-                  {ticket.assignee === null ? (
+                  {assignee === null ? (
                     <span className="text-muted-foreground">—</span>
                   ) : (
-                    <span className="inline-flex items-center gap-2">
-                      <Avatar className="size-6 text-body-xs">
-                        <AvatarImage alt="" src={ticket.assignee.avatarUrl ?? undefined} />
-                        <AvatarFallback>{initials(ticket.assignee.name)}</AvatarFallback>
-                      </Avatar>
-                      {ticket.assignee.name}
-                    </span>
+                    <TeammateItem teammate={assignee} />
                   )}
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-muted-foreground">

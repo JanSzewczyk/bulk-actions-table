@@ -35,14 +35,18 @@ export type BulkResult = {
   failed: Array<FailureItem>;
 };
 
-/** Deterministic error/latency simulation knobs sent from the dev panel. */
+/**
+ * Deterministic error/latency simulation knobs. Server-side state only (`GET`/`PATCH
+ * /api/dev/simulation`) — never part of a bulk request payload, so a client can't influence how its
+ * own request is processed.
+ */
 export type SimulationParams = {
   failureRate: number;
   seed: number;
   concurrency: number;
 };
 
-export type BulkRequest = SimulationParams & {
+export type BulkRequest = {
   action: BulkAction;
   /** Only for `action: 'assign'`. Validated server-side against the known teammate list. */
   assigneeId?: string;

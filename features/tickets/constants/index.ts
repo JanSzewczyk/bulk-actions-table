@@ -1,5 +1,4 @@
 // Barrel — client-safe constants for the tickets domain.
-import { SortDirection, TicketSortField } from "../types/table-query";
 
 /** Rows per page in the table. The header checkbox selects this many at once. */
 export const PAGE_SIZE = 25;
@@ -25,7 +24,5 @@ export const JOB_POLL_INTERVAL_MS = 1000;
 /** sessionStorage key used to resume polling after a page refresh mid-job. */
 export const ACTIVE_JOB_STORAGE_KEY = "tickets:active-job";
 
-export const DEFAULT_SORT = {
-  direction: SortDirection.DESC,
-  field: TicketSortField.CREATED_AT
-} as const;
+/** Fixed id of the static teammate representing the current user — never part of the seeded/generated range. */
+export const CURRENT_USER_ID = "me";

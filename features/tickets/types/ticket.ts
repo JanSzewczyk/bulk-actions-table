@@ -29,12 +29,16 @@ export type Ticket = {
   deletedAt: string | null;
 };
 
-/** Client-safe row shown in the table (assignee resolved, soft-delete detail dropped). */
+/**
+ * Client-safe row shown in the table (soft-delete detail dropped). Carries only the assignee's id —
+ * never a denormalized name/avatar — so the client resolves it against the `teammates` list it
+ * already has, instead of the server duplicating teammate data into every row.
+ */
 export type TicketListItem = {
   id: string;
   subject: string;
   customer: string;
   status: TicketStatus;
-  assignee: { id: string; name: string; avatarUrl: string | null } | null;
+  assigneeId: string | null;
   createdAt: string;
 };

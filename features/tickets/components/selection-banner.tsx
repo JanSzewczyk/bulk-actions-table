@@ -28,10 +28,10 @@ export function SelectionBanner({ pageIds, total, filter }: SelectionBannerProps
     return (
       <div className="flex flex-wrap items-center justify-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-4 py-2 text-body-sm">
         <span>
-          Zaznaczono wszystkie <strong>{formatCount(selectionCount(selection, total))}</strong> pasujące.
+          Selected all <strong>{formatCount(selectionCount(selection, total))}</strong> matching.
         </span>
         <Button onClick={() => dispatch({ type: "CLEAR" })} size="sm" variant="link">
-          Wyczyść zaznaczenie
+          Clear selection
         </Button>
       </div>
     );
@@ -47,10 +47,10 @@ export function SelectionBanner({ pageIds, total, filter }: SelectionBannerProps
   return (
     <div className="flex flex-wrap items-center justify-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 text-body-sm">
       <span>
-        Zaznaczono <strong>{selection.ids.size}</strong> na tej stronie.
+        Selected <strong>{selection.ids.size}</strong> on this page.
       </span>
       <Button onClick={() => dispatch({ filter, type: "SELECT_ALL_MATCHING" })} size="sm" variant="link">
-        Zaznacz wszystkie {formatCount(total)} pasujące
+        Select all {formatCount(total)} matching
       </Button>
     </div>
   );

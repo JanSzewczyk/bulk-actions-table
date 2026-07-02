@@ -2,6 +2,7 @@ import "server-only";
 
 import { faker } from "@faker-js/faker";
 import { seed } from "mimicry-js";
+import { CURRENT_USER_ID } from "~/features/tickets/constants";
 import { teammateBuilder, ticketBuilder } from "~/features/tickets/test/builders";
 import type { Teammate } from "~/features/tickets/types/teammate";
 import type { Ticket } from "~/features/tickets/types/ticket";
@@ -27,8 +28,18 @@ export function generateDataset({ seed: seedValue, size }: { seed: number; size:
   faker.seed(seedValue);
   seed(seedValue);
 
+  // Static teammate simulating the current user, shown as "(You)" in the assign picker. Built here
+  // (not as a module constant) so its avatar comes from the same seeded faker stream as everything else.
+  const currentUser: Teammate = {
+    avatarUrl: faker.image.avatarGitHub(),
+    email: "me@example.com",
+    id: CURRENT_USER_ID,
+    isAvailable: true,
+    name: "Me"
+  };
+
   teammateBuilder.reset();
-  const teammates = teammateBuilder.many(TEAMMATE_COUNT);
+  const teammates = [currentUser, ...teammateBuilder.many(TEAMMATE_COUNT)];
   const teammateIds = teammates.map((teammate) => teammate.id);
 
   ticketBuilder.reset();

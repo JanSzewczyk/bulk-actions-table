@@ -1,4 +1,4 @@
-import { DEFAULT_SORT, PAGE_SIZE } from "~/features/tickets/constants";
+import { PAGE_SIZE } from "~/features/tickets/constants";
 import type { TableQuery } from "~/features/tickets/types/table-query";
 
 /**
@@ -6,6 +6,7 @@ import type { TableQuery } from "~/features/tickets/types/table-query";
  *
  * Default values are omitted from the URL so shared links stay short and a pristine table lives at
  * the bare path. The server parser fills the same defaults back in, so the round-trip is lossless.
+ * `sort`/`direction` follow the same rule: `null` (unsorted) omits both params entirely.
  */
 
 export function stringifyTableQuery(query: TableQuery): string {
@@ -17,10 +18,10 @@ export function stringifyTableQuery(query: TableQuery): string {
   if (query.size !== PAGE_SIZE) {
     params.set("size", String(query.size));
   }
-  if (query.sort !== DEFAULT_SORT.field) {
+  if (query.sort !== null) {
     params.set("sort", query.sort);
   }
-  if (query.direction !== DEFAULT_SORT.direction) {
+  if (query.direction !== null) {
     params.set("direction", query.direction);
   }
   if (query.status !== null) {

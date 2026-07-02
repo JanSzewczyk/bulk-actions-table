@@ -1,18 +1,18 @@
 import { type ServiceError, ServiceErrorCode } from "~/lib/services/errors";
 
-/** Translates a `ServiceError` into a user-facing Polish message. Never exposes the internal code. */
+/** Translates a `ServiceError` into a user-facing message. Never exposes the internal code. */
 export function mapServiceError(error: ServiceError): string {
   if (error.isNotFound) {
-    return "Nie znaleziono wybranego zasobu.";
+    return "The requested resource was not found.";
   }
   if (error.isPermissionDenied) {
-    return "Brak uprawnień do wykonania tej operacji.";
+    return "You don't have permission to perform this action.";
   }
   if (error.isRetryable) {
-    return "Usługa jest chwilowo niedostępna. Spróbuj ponownie.";
+    return "The service is temporarily unavailable. Please try again.";
   }
   if (error.code === ServiceErrorCode.VALIDATION) {
-    return "Nieprawidłowe dane żądania.";
+    return "Invalid request data.";
   }
-  return "Wystąpił nieoczekiwany błąd.";
+  return "An unexpected error occurred.";
 }

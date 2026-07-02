@@ -29,8 +29,9 @@ export type TableFilter = {
 export type TableQuery = TableFilter & {
   page: number;
   size: number;
-  sort: TicketSortField;
-  direction: SortDirection;
+  /** `null` means unsorted (the third click of the header cycle: asc → desc → off). */
+  sort: TicketSortField | null;
+  direction: SortDirection | null;
 };
 
 export type Pagination = {

@@ -8,7 +8,8 @@ import { TicketStatus } from "~/features/tickets/types/ticket";
  * not something the caller should silently recover from.
  */
 
-const simulationParamsSchema = z.object({
+/** Validates `GET`/`PATCH /api/dev/simulation` bodies — server-side only, never part of a bulk request. */
+export const simulationParamsSchema = z.object({
   concurrency: z.coerce.number().int().positive().max(20),
   failureRate: z.coerce.number().min(0).max(1),
   seed: z.coerce.number().int()
@@ -24,13 +25,13 @@ const commonBulkFields = {
   assigneeId: z.string().min(1).optional()
 };
 
-const includeBulkSchema = simulationParamsSchema.extend({
+const includeBulkSchema = z.object({
   ...commonBulkFields,
   ids: z.array(z.string().min(1)).min(1),
   mode: z.literal("include")
 });
 
-const allBulkSchema = simulationParamsSchema.extend({
+const allBulkSchema = z.object({
   ...commonBulkFields,
   excluded: z.array(z.string().min(1)),
   filter: tableFilterSchema,

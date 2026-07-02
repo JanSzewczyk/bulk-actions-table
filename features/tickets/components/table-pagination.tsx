@@ -34,13 +34,13 @@ export function TablePagination({ pagination, query, isPending, onQueryChange }:
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
       <p className="text-mute">
-        Strona {numberFormatter.format(page)} z {numberFormatter.format(totalPages)} · {numberFormatter.format(total)}{" "}
-        zgłoszeń
+        Page {numberFormatter.format(page)} of {numberFormatter.format(totalPages)} · {numberFormatter.format(total)}{" "}
+        tickets
       </p>
 
       <div className="flex items-center gap-4">
         <Field className="w-fit" orientation="horizontal">
-          <FieldLabel htmlFor="ticket-page-size">Na stronie</FieldLabel>
+          <FieldLabel htmlFor="ticket-page-size">Per page</FieldLabel>
           <Select
             className="w-20"
             disabled={isPending}
@@ -61,28 +61,28 @@ export function TablePagination({ pagination, query, isPending, onQueryChange }:
         <Pagination className="mx-0 w-auto">
           <PaginationContent>
             <PaginationItem>
-              <PaginationLink aria-label="Pierwsza strona" asChild size="icon-sm">
+              <PaginationLink aria-label="First page" asChild size="icon-sm">
                 <button disabled={isFirst || isPending} onClick={() => onQueryChange({ page: 1 })} type="button">
                   <ChevronsLeftIcon />
                 </button>
               </PaginationLink>
             </PaginationItem>
             <PaginationItem>
-              <PaginationLink aria-label="Poprzednia strona" asChild size="icon-sm">
+              <PaginationLink aria-label="Previous page" asChild size="icon-sm">
                 <button disabled={isFirst || isPending} onClick={() => onQueryChange({ page: page - 1 })} type="button">
                   <ChevronLeftIcon />
                 </button>
               </PaginationLink>
             </PaginationItem>
             <PaginationItem>
-              <PaginationLink aria-label="Następna strona" asChild size="icon-sm">
+              <PaginationLink aria-label="Next page" asChild size="icon-sm">
                 <button disabled={isLast || isPending} onClick={() => onQueryChange({ page: page + 1 })} type="button">
                   <ChevronRightIcon />
                 </button>
               </PaginationLink>
             </PaginationItem>
             <PaginationItem>
-              <PaginationLink aria-label="Ostatnia strona" asChild size="icon-sm">
+              <PaginationLink aria-label="Last page" asChild size="icon-sm">
                 <button
                   disabled={isLast || isPending}
                   onClick={() => onQueryChange({ page: totalPages })}

@@ -67,7 +67,7 @@ export function TableControls({ query, isPending, onQueryChange }: TableControls
           value={query.status ?? ALL_STATUSES}
         >
           <SelectContent>
-            <SelectItem value={ALL_STATUSES}>Wszystkie statusy</SelectItem>
+            <SelectItem value={ALL_STATUSES}>All statuses</SelectItem>
             {TicketStatuses.map((status) => (
               <SelectItem key={status} value={status}>
                 {STATUS_LABELS[status]}

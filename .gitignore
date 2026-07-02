@@ -126,3 +126,4 @@ src/styles
 /bash.exe.stackdump
 
 docs/
+/.playwright-cli

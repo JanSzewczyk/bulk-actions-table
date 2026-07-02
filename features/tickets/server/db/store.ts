@@ -1,7 +1,8 @@
 import "server-only";
 
 import { env } from "~/data/env/server";
-import type { BulkActionOutcome } from "~/features/tickets/types/bulk";
+import { DEFAULT_CONCURRENCY, DEFAULT_FAILURE_RATE, DEFAULT_SEED } from "~/features/tickets/constants";
+import type { BulkActionOutcome, SimulationParams } from "~/features/tickets/types/bulk";
 import type { Job } from "~/features/tickets/types/job";
 import type { Teammate } from "~/features/tickets/types/teammate";
 import type { Ticket } from "~/features/tickets/types/ticket";
@@ -25,6 +26,8 @@ type TicketStore = {
   jobs: Map<string, Job>;
   /** Bulk request outcomes keyed by `Idempotency-Key`, so a retried submit isn't re-executed. */
   idempotency: Map<string, BulkActionOutcome>;
+  /** Server-side simulation knobs, tunable at runtime via `GET`/`PATCH /api/dev/simulation`. */
+  simulation: SimulationParams;
 };
 
 const STORE_KEY = Symbol.for("bulk-actions-table.tickets-store");
@@ -36,7 +39,12 @@ type GlobalWithStore = typeof globalThis & {
 function createStore(): TicketStore {
   const { tickets, teammates } = generateDataset({ seed: env.DATASET_SEED, size: env.DATASET_SIZE });
   const ticketMap = new Map(tickets.map((ticket) => [ticket.id, ticket]));
-  return { idempotency: new Map(), jobs: new Map(), teammates, tickets: ticketMap };
+  const simulation: SimulationParams = {
+    concurrency: DEFAULT_CONCURRENCY,
+    failureRate: DEFAULT_FAILURE_RATE,
+    seed: DEFAULT_SEED
+  };
+  return { idempotency: new Map(), jobs: new Map(), simulation, teammates, tickets: ticketMap };
 }
 
 /** Returns the process-wide store, generating the dataset lazily on first access. */

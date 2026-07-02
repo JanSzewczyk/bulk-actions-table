@@ -2,16 +2,16 @@ import type { BadgeVariant } from "@szum-tech/design-system/components/badge";
 import { TicketStatus as Status, type TicketStatus } from "~/features/tickets/types/ticket";
 
 /**
- * Presentation mappings for tickets — Polish status labels, status → badge colour, and date
- * formatting. Client-safe: consumed by the table and, later, the toolbar and dialogs.
+ * Presentation mappings for tickets — status labels, status → badge colour, and date formatting.
+ * Client-safe: consumed by the table and, later, the toolbar and dialogs.
  */
 
 export const STATUS_LABELS: Record<TicketStatus, string> = {
-  [Status.OPEN]: "Otwarte",
-  [Status.PENDING]: "Oczekujące",
-  [Status.RESOLVED]: "Rozwiązane",
-  [Status.CLOSED]: "Zamknięte",
-  [Status.ARCHIVED]: "Zarchiwizowane"
+  [Status.OPEN]: "Open",
+  [Status.PENDING]: "Pending",
+  [Status.RESOLVED]: "Resolved",
+  [Status.CLOSED]: "Closed",
+  [Status.ARCHIVED]: "Archived"
 };
 
 export const STATUS_BADGE_VARIANT: Record<TicketStatus, BadgeVariant> = {
@@ -22,7 +22,7 @@ export const STATUS_BADGE_VARIANT: Record<TicketStatus, BadgeVariant> = {
   [Status.ARCHIVED]: "outline"
 };
 
-const dateFormatter = new Intl.DateTimeFormat("pl-PL", {
+const dateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "2-digit",
   month: "short",
   year: "numeric"
@@ -32,14 +32,14 @@ export function formatTicketDate(iso: string): string {
   return dateFormatter.format(new Date(iso));
 }
 
-const numberFormatter = new Intl.NumberFormat("pl-PL");
+const numberFormatter = new Intl.NumberFormat("en-US");
 
-/** Group-separated count for banners and toolbars, e.g. 8214 → "8 214". */
+/** Group-separated count for banners and toolbars, e.g. 8214 → "8,214". */
 export function formatCount(value: number): string {
   return numberFormatter.format(value);
 }
 
-/** Initials for the assignee avatar fallback, e.g. "Anna Kowalska" → "AK". */
+/** Initials for the assignee avatar fallback, e.g. "Anna Smith" → "AS". */
 export function initials(name: string): string {
   return name
     .split(/\s+/)

@@ -2,34 +2,40 @@ import { expect, fn } from "storybook/test";
 import preview from "~/.storybook/preview";
 import { SelectionProvider } from "~/features/tickets/hooks/use-selection";
 import { SortDirection, TicketSortField } from "~/features/tickets/types/table-query";
+import type { Teammate } from "~/features/tickets/types/teammate";
 import type { TicketListItem } from "~/features/tickets/types/ticket";
 import { TicketStatus } from "~/features/tickets/types/ticket";
 import { TicketsTable } from "./tickets-table";
 
+const teammates: Array<Teammate> = [
+  { avatarUrl: null, email: "anna@example.com", id: "u1", isAvailable: true, name: "Anna Smith" },
+  { avatarUrl: null, email: "mark@example.com", id: "u2", isAvailable: true, name: "Mark Newman" }
+];
+
 const tickets: Array<TicketListItem> = [
   {
-    assignee: { avatarUrl: null, id: "u1", name: "Anna Kowalska" },
+    assigneeId: "u1",
     createdAt: "2025-06-30T10:15:00.000Z",
-    customer: "Acme Sp. z o.o.",
+    customer: "Acme Inc.",
     id: "t1",
     status: TicketStatus.OPEN,
-    subject: "Nie działa logowanie (#1024)"
+    subject: "Login isn't working (#1024)"
   },
   {
-    assignee: null,
+    assigneeId: null,
     createdAt: "2025-06-28T08:00:00.000Z",
     customer: "Globex",
     id: "t2",
     status: TicketStatus.PENDING,
-    subject: "Błąd płatności (#2048)"
+    subject: "Payment error (#2048)"
   },
   {
-    assignee: { avatarUrl: null, id: "u2", name: "Marek Nowak" },
+    assigneeId: "u2",
     createdAt: "2025-06-25T14:30:00.000Z",
     customer: "Initech",
     id: "t3",
     status: TicketStatus.RESOLVED,
-    subject: "Prośba o zwrot środków (#4096)"
+    subject: "Refund request (#4096)"
   }
 ];
 
@@ -38,7 +44,7 @@ const baseArgs = {
   isPending: false,
   onSortChange: fn(),
   sort: TicketSortField.CREATED_AT,
-  teammates: [],
+  teammates,
   tickets
 };
 
@@ -68,19 +74,24 @@ Default.test("Renders a row per ticket with status and assignee", async ({ canva
   });
 
   await step("Status labels render as badges", async () => {
-    await expect(canvas.getByText("Otwarte")).toBeVisible();
-    await expect(canvas.getByText("Oczekujące")).toBeVisible();
-    await expect(canvas.getByText("Rozwiązane")).toBeVisible();
+    await expect(canvas.getByText("Open")).toBeVisible();
+    await expect(canvas.getByText("Pending")).toBeVisible();
+    await expect(canvas.getByText("Resolved")).toBeVisible();
   });
 
   await step("Unassigned ticket shows a dash", async () => {
     await expect(canvas.getByText("—")).toBeVisible();
   });
+
+  await step("Assigned tickets show the teammate's name", async () => {
+    await expect(canvas.getByText("Anna Smith")).toBeVisible();
+    await expect(canvas.getByText("Mark Newman")).toBeVisible();
+  });
 });
 
 Default.test("Clicking a sortable header requests that sort field", async ({ canvas, args, userEvent, step }) => {
-  await step("Click the 'Temat' header", async () => {
-    await userEvent.click(canvas.getByRole("button", { name: /Temat/ }));
+  await step("Click the 'Subject' header", async () => {
+    await userEvent.click(canvas.getByRole("button", { name: /Subject/ }));
     await expect(args.onSortChange).toHaveBeenCalledWith(TicketSortField.SUBJECT);
   });
 
@@ -95,7 +106,7 @@ export const Empty = meta.story({
 });
 
 Empty.test("Shows the empty state when there are no tickets", async ({ canvas }) => {
-  await expect(canvas.getByText(/Brak zgłoszeń/)).toBeVisible();
+  await expect(canvas.getByText(/No tickets match/)).toBeVisible();
 });
 
 export const Pending = meta.story({

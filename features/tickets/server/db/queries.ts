@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { FailureItem } from "~/features/tickets/types/bulk";
 import type { Job } from "~/features/tickets/types/job";
 import type { TableFilter, TableQuery, TicketSortField } from "~/features/tickets/types/table-query";
 import type { Teammate } from "~/features/tickets/types/teammate";
@@ -55,12 +56,16 @@ function collectMatching(filter: TableFilter): Array<Ticket> {
 export function queryTickets(query: TableQuery): { rows: Array<Ticket>; total: number } {
   const matching = collectMatching(query);
 
-  const compare = comparators[query.sort];
-  matching.sort((a, b) => {
-    const primary = query.direction === "asc" ? compare(a, b) : compare(b, a);
-    // Stable tie-break by id so equal keys keep a deterministic order across requests.
-    return primary !== 0 ? primary : a.id.localeCompare(b.id);
-  });
+  // `sort: null` is the genuine unsorted state (third click of the header cycle) — leave the store's
+  // natural order alone instead of imposing a hidden default.
+  if (query.sort !== null) {
+    const compare = comparators[query.sort];
+    matching.sort((a, b) => {
+      const primary = query.direction === "asc" ? compare(a, b) : compare(b, a);
+      // Stable tie-break by id so equal keys keep a deterministic order across requests.
+      return primary !== 0 ? primary : a.id.localeCompare(b.id);
+    });
+  }
 
   const total = matching.length;
   const offset = (query.page - 1) * query.size;
@@ -101,4 +106,18 @@ export function getTeammates(): Array<Teammate> {
 
 export function getJobById(id: string): Job | undefined {
   return getStore().jobs.get(id);
+}
+
+/** A page of a job's failures, plus the total count for pagination — never the full list at once. */
+export function getJobFailuresPage(
+  id: string,
+  page: number,
+  size: number
+): { data: Array<FailureItem>; total: number } {
+  const job = getStore().jobs.get(id);
+  if (!job) {
+    return { data: [], total: 0 };
+  }
+  const offset = (page - 1) * size;
+  return { data: job.failures.slice(offset, offset + size), total: job.failures.length };
 }
