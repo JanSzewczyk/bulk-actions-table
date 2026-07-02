@@ -1,18 +1,52 @@
-"use client";
-
 import { Button } from "@szum-tech/design-system/components/button";
 import { Header } from "@szum-tech/design-system/components/header";
+import type { Metadata } from "next";
 import { GithubIcon } from "~/components/ui/icons/github";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
+import { TicketsTableSection } from "~/features/tickets/components";
+import { SelectionProvider } from "~/features/tickets/hooks/use-selection";
+import { parseTableQuery } from "~/features/tickets/schemas";
+import { getTeammates, getTicketsPage } from "~/features/tickets/server";
+import { createLogger } from "~/lib/logger";
 
-export default function Home() {
+export const metadata: Metadata = {
+  title: "Zgłoszenia"
+};
+
+const logger = createLogger({ module: "tickets-page" });
+
+async function loadData(searchParams: PageProps<"/">["searchParams"]) {
+  const params = await searchParams;
+  const query = parseTableQuery(params);
+
+  const [error, page] = await getTicketsPage(query);
+  if (error) {
+    logger.error({ errorCode: error.code, isRetryable: error.isRetryable }, "Failed to load tickets page");
+    // Let the error boundary render the fallback with a retry.
+    throw new Error("Nie udało się wczytać zgłoszeń");
+  }
+
+  const [teammatesError, teammates] = await getTeammates();
+  if (teammatesError) {
+    logger.error(
+      { errorCode: teammatesError.code, isRetryable: teammatesError.isRetryable },
+      "Failed to load teammates"
+    );
+    throw new Error("Nie udało się wczytać zespołów");
+  }
+
+  logger.info({ page: query.page, size: query.size, total: page.pagination.total }, "Loaded tickets page");
+  return { page, query, teammates };
+}
+
+export default async function TicketsPage({ searchParams }: PageProps<"/">) {
+  const { query, page, teammates } = await loadData(searchParams);
+
   return (
     <div className="flex min-h-screen flex-col">
       <Header>
         <div className="flex w-full items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-body-sm">Szum-Tech</span>
-          </div>
+          <span className="font-semibold text-body-sm">Bulk Actions Table</span>
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <Button asChild endIcon={<GithubIcon />} size="sm" variant="outline">
@@ -29,7 +63,16 @@ export default function Home() {
         </div>
       </Header>
 
-      <main className="flex-1" id="main-content"></main>
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8" id="main-content">
+        <div className="mb-6 flex flex-col gap-1">
+          <h1 className="text-heading-h1">Zgłoszenia</h1>
+          <p className="text-mute">Zarządzaj zgłoszeniami wsparcia i wykonuj akcje masowe na wielu naraz.</p>
+        </div>
+
+        <SelectionProvider>
+          <TicketsTableSection pagination={page.pagination} query={query} teammates={teammates} tickets={page.data} />
+        </SelectionProvider>
+      </main>
     </div>
   );
 }

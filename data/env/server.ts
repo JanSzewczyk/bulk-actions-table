@@ -13,10 +13,16 @@ export const env = createEnv({
       .enum(["true", "false"])
       .optional()
       .transform((value) => value === "true"),
+    /** Element count above which a bulk action escalates from sync to an async job. */
+    BULK_ASYNC_THRESHOLD: z.coerce.number().int().positive().optional().default(50),
     CI: z
       .enum(["true", "false", "0", "1"])
       .optional()
       .transform((value) => value === "true" || value === "1"),
+    /** Deterministic seed for the mock dataset — the same seed reproduces the same tickets after a restart. */
+    DATASET_SEED: z.coerce.number().int().optional().default(12345),
+    /** Number of mock tickets generated on first access (kept large so the async path is visible). */
+    DATASET_SIZE: z.coerce.number().int().positive().optional().default(8000),
     LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).optional().default("info"),
     NODE_ENV: z.enum(["development", "test", "production"]),
     VERCEL_URL: z.string().optional()
