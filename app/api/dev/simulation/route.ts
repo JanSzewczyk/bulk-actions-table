@@ -17,7 +17,11 @@ export async function PATCH(request: Request) {
   let body: ReturnType<typeof simulationParamsSchema.parse>;
   try {
     body = simulationParamsSchema.parse(await request.json());
-  } catch {
+  } catch (caught) {
+    logger.warn(
+      { error: caught instanceof Error ? caught.message : String(caught) },
+      "Rejected invalid simulation params"
+    );
     return NextResponse.json({ error: "Invalid simulation params payload" }, { status: 400 });
   }
 

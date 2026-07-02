@@ -10,7 +10,7 @@ import { TicketStatus } from "~/features/tickets/types/ticket";
 
 /** Validates `GET`/`PATCH /api/dev/simulation` bodies — server-side only, never part of a bulk request. */
 export const simulationParamsSchema = z.object({
-  concurrency: z.coerce.number().int().positive().max(20),
+  concurrency: z.coerce.number().int().positive().max(100),
   failureRate: z.coerce.number().min(0).max(1),
   seed: z.coerce.number().int()
 });

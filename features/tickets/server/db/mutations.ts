@@ -41,6 +41,13 @@ export function assignTicket(id: string, assigneeId: string): ServiceResult<void
   return [null, undefined];
 }
 
+export function unassignTicket(id: string): ServiceResult<void> {
+  const [error, ticket] = requireVisibleTicket(id);
+  if (error) return [error, null];
+  ticket.assigneeId = null;
+  return [null, undefined];
+}
+
 export function softDeleteTicket(id: string): ServiceResult<void> {
   const [error, ticket] = requireVisibleTicket(id);
   if (error) return [error, null];

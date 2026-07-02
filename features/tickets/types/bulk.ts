@@ -9,7 +9,8 @@ export const BulkAction = {
   ARCHIVE: "archive",
   ASSIGN: "assign",
   DELETE: "delete",
-  RESTORE: "restore"
+  RESTORE: "restore",
+  UNASSIGN: "unassign"
 } as const;
 
 export type BulkAction = (typeof BulkAction)[keyof typeof BulkAction];

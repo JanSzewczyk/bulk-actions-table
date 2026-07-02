@@ -82,6 +82,14 @@ export function BulkToolbar({
     onSubmit(buildRequest(BulkAction.ASSIGN, teammateId));
   }
 
+  function requestUnassign() {
+    if (selection.mode === SelectionMode.ALL) {
+      setPendingAction({ action: BulkAction.UNASSIGN });
+      return;
+    }
+    onSubmit(buildRequest(BulkAction.UNASSIGN, undefined));
+  }
+
   function requestDelete() {
     setPendingAction({ action: BulkAction.DELETE });
   }
@@ -123,7 +131,12 @@ export function BulkToolbar({
         >
           Archive
         </Button>
-        <AssignPopover disabled={actionsDisabled} onAssign={requestAssign} teammates={teammates} />
+        <AssignPopover
+          disabled={actionsDisabled}
+          onAssign={requestAssign}
+          onUnassign={requestUnassign}
+          teammates={teammates}
+        />
         <Button disabled={actionsDisabled} onClick={requestDelete} size="sm" startIcon={<Trash2Icon />} variant="error">
           Delete
         </Button>

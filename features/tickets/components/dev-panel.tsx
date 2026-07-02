@@ -12,11 +12,32 @@ import {
   SheetTitle,
   SheetTrigger
 } from "@szum-tech/design-system/components/sheet";
+import { toast } from "@szum-tech/design-system/components/toaster";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@szum-tech/design-system/components/tooltip";
 import { InfoIcon, SettingsIcon } from "lucide-react";
 import * as React from "react";
 import type { SimulationParams } from "~/features/tickets/types/bulk";
 import type { ActionResponse } from "~/lib/action-types";
+
+const MIN_CONCURRENCY = 1;
+const MAX_CONCURRENCY = 100;
+
+/**
+ * Clamps to what the server's `simulationParamsSchema` will actually accept. The inputs allow
+ * transient invalid states while typing (an empty concurrency field, a stray decimal in seed) — this
+ * is what turns them back into a valid payload before it's sent, instead of letting the server 400.
+ */
+function sanitizeSimulation(params: SimulationParams): SimulationParams {
+  const concurrency = Number.isFinite(params.concurrency) ? Math.round(params.concurrency) : MIN_CONCURRENCY;
+  const failureRate = Number.isFinite(params.failureRate) ? params.failureRate : 0;
+  const seed = Number.isFinite(params.seed) ? Math.round(params.seed) : 0;
+
+  return {
+    concurrency: Math.min(MAX_CONCURRENCY, Math.max(MIN_CONCURRENCY, concurrency)),
+    failureRate: Math.min(1, Math.max(0, failureRate)),
+    seed
+  };
+}
 
 type DevPanelProps = {
   initialSimulation: SimulationParams;
@@ -35,7 +56,7 @@ function FieldLabel({ htmlFor, label, explanation }: FieldLabelProps) {
       <Label htmlFor={htmlFor}>{label}</Label>
       <Tooltip>
         <TooltipTrigger aria-label={`What is "${label}"?`}>
-          <InfoIcon className="size-3.5 text-muted-foreground" />
+          <InfoIcon aria-hidden={true} className="size-3.5 text-muted-foreground" />
         </TooltipTrigger>
         <TooltipContent>{explanation}</TooltipContent>
       </Tooltip>
@@ -55,9 +76,13 @@ export function DevPanel({ initialSimulation, onUpdateSimulationAction }: DevPan
   simulationRef.current = simulation;
 
   function commit() {
-    const current = simulationRef.current;
+    const sanitized = sanitizeSimulation(simulationRef.current);
+    setSimulation(sanitized);
     startTransition(async () => {
-      await onUpdateSimulationAction(current);
+      const result = await onUpdateSimulationAction(sanitized);
+      if (!result.success) {
+        toast.error(result.error);
+      }
     });
   }
 
@@ -79,7 +104,7 @@ export function DevPanel({ initialSimulation, onUpdateSimulationAction }: DevPan
         <div className="flex flex-col gap-6 px-4">
           <div className="flex flex-col gap-2">
             <FieldLabel
-              explanation="Chance that any single item in a bulk action fails with a simulated conflict, instead of succeeding."
+              explanation="Independent probability that any single item fails with a simulated conflict. Rolled fresh on every attempt, so retrying a failed item always has this same chance of succeeding."
               htmlFor="dev-panel-failure-rate"
               label="Failure rate"
             />
@@ -105,7 +130,7 @@ export function DevPanel({ initialSimulation, onUpdateSimulationAction }: DevPan
 
           <div className="flex flex-col gap-2">
             <FieldLabel
-              explanation="Seed for the deterministic per-item simulation. The same seed and ticket id always produce the same latency and pass/fail outcome."
+              explanation="Seed for the simulated per-item latency only. The same seed and ticket id always wait the same simulated delay — it has no effect on whether an item succeeds or fails."
               htmlFor="dev-panel-seed"
               label="Seed"
             />
@@ -113,6 +138,7 @@ export function DevPanel({ initialSimulation, onUpdateSimulationAction }: DevPan
               id="dev-panel-seed"
               onBlur={commit}
               onChange={(event) => setSimulation((prev) => ({ ...prev, seed: Number(event.target.value) }))}
+              step={1}
               type="number"
               value={simulation.seed}
             />
@@ -126,9 +152,11 @@ export function DevPanel({ initialSimulation, onUpdateSimulationAction }: DevPan
             />
             <Input
               id="dev-panel-concurrency"
-              min={1}
+              max={MAX_CONCURRENCY}
+              min={MIN_CONCURRENCY}
               onBlur={commit}
               onChange={(event) => setSimulation((prev) => ({ ...prev, concurrency: Number(event.target.value) }))}
+              step={1}
               type="number"
               value={simulation.concurrency}
             />

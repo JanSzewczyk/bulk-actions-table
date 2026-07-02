@@ -1,10 +1,18 @@
 import "server-only";
 
 /**
- * Deterministic per-item latency + failure simulation for the bulk pipeline. The outcome is derived
- * from `(seed, ticketId)` rather than drawn from a single shared PRNG sequence, so it stays
- * reproducible regardless of the order the worker pool actually processes items in — required since
- * `runPool` runs items concurrently.
+ * Per-item latency + failure simulation for the bulk pipeline.
+ *
+ * Latency is derived from `(seed, ticketId)` so it stays reproducible regardless of the order the
+ * worker pool actually processes items in (required since `runPool` runs items concurrently) — it's
+ * just simulated timing, not something a user depends on being retry-safe.
+ *
+ * Failure is a genuinely independent probability draw, deliberately NOT tied to `(seed, ticketId)`.
+ * Anchoring it to the id would mean a ticket that failed once fails identically on every future
+ * attempt with the same seed — so a batch's failed items could never be retried into success, and
+ * the dev panel's failure-rate percentage would stop meaning "probability of failure" and instead
+ * mean "which ids are permanently cursed". Each attempt — including retries — gets its own independent
+ * roll at the configured rate.
  */
 
 const MIN_LATENCY_MS = 150;
@@ -30,14 +38,13 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-export type SimulatedItemOutcome = {
-  latencyMs: number;
-  shouldFail: boolean;
-};
-
-export function simulateItemOutcome(seed: number, id: string, failureRate: number): SimulatedItemOutcome {
+/** Deterministic simulated processing delay for one item — same seed + id always waits the same time. */
+export function simulateItemLatency(seed: number, id: string): number {
   const rng = mulberry32(hashSeed(seed, id));
-  const latencyMs = Math.round(MIN_LATENCY_MS + rng() * (MAX_LATENCY_MS - MIN_LATENCY_MS));
-  const shouldFail = rng() < failureRate;
-  return { latencyMs, shouldFail };
+  return Math.round(MIN_LATENCY_MS + rng() * (MAX_LATENCY_MS - MIN_LATENCY_MS));
+}
+
+/** Independent Bernoulli trial at `failureRate` — a fresh roll every call, so retries can succeed. */
+export function rollItemFailure(failureRate: number): boolean {
+  return Math.random() < failureRate;
 }

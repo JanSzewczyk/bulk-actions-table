@@ -53,7 +53,8 @@ const ACTION_VERB: Record<BulkAction, string> = {
   [BulkAction.ARCHIVE]: "Archived",
   [BulkAction.ASSIGN]: "Assigned",
   [BulkAction.DELETE]: "Deleted",
-  [BulkAction.RESTORE]: "Restored"
+  [BulkAction.RESTORE]: "Restored",
+  [BulkAction.UNASSIGN]: "Unassigned"
 };
 
 function buildRetryRequest(source: BulkRequest, ids: Array<string>): BulkRequest {
