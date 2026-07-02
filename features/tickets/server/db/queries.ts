@@ -78,6 +78,19 @@ export function countMatching(filter: TableFilter): number {
   return collectMatching(filter).length;
 }
 
+/** Of the given ids, how many no longer match `filter` (or were deleted) — drives the toolbar's hint. */
+export function countIdsOutsideFilter(ids: ReadonlyArray<string>, filter: TableFilter): number {
+  const { tickets } = getStore();
+  let outside = 0;
+  for (const id of ids) {
+    const ticket = tickets.get(id);
+    if (!ticket || !matchesFilter(ticket, filter)) {
+      outside += 1;
+    }
+  }
+  return outside;
+}
+
 export function getTicketById(id: string): Ticket | undefined {
   return getStore().tickets.get(id);
 }

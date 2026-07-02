@@ -112,6 +112,24 @@ export function categorizeServiceError(error: unknown, resource: string): Servic
   return ServiceError.internal(resource);
 }
 
+/** Maps a `ServiceError` onto the HTTP status a route handler should respond with. */
+export function httpStatusFromServiceError(error: ServiceError): number {
+  switch (error.code) {
+    case ServiceErrorCode.VALIDATION:
+      return 400;
+    case ServiceErrorCode.PERMISSION_DENIED:
+      return 403;
+    case ServiceErrorCode.NOT_FOUND:
+      return 404;
+    case ServiceErrorCode.ALREADY_EXISTS:
+      return 409;
+    case ServiceErrorCode.TIMEOUT:
+      return 408;
+    default:
+      return error.isRetryable ? 503 : 500;
+  }
+}
+
 /** Maps a non-OK HTTP response status onto a `ServiceError` (used by the internal API client). */
 export function serviceErrorFromStatus(status: number, resource: string): ServiceError {
   if (status === 404) {

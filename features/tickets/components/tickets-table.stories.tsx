@@ -38,6 +38,7 @@ const baseArgs = {
   isPending: false,
   onSortChange: fn(),
   sort: TicketSortField.CREATED_AT,
+  teammates: [],
   tickets
 };
 

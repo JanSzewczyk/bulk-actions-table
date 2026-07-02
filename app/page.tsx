@@ -7,6 +7,8 @@ import { TicketsTableSection } from "~/features/tickets/components";
 import { SelectionProvider } from "~/features/tickets/hooks/use-selection";
 import { parseTableQuery } from "~/features/tickets/schemas";
 import { getTeammates, getTicketsPage } from "~/features/tickets/server";
+import { bulkActionAction } from "~/features/tickets/server/actions/bulk-action.action";
+import { outsideFilterCountAction } from "~/features/tickets/server/actions/outside-filter-count.action";
 import { createLogger } from "~/lib/logger";
 
 export const metadata: Metadata = {
@@ -70,7 +72,14 @@ export default async function TicketsPage({ searchParams }: PageProps<"/">) {
         </div>
 
         <SelectionProvider>
-          <TicketsTableSection pagination={page.pagination} query={query} teammates={teammates} tickets={page.data} />
+          <TicketsTableSection
+            onBulkAction={bulkActionAction}
+            onOutsideFilterCountAction={outsideFilterCountAction}
+            pagination={page.pagination}
+            query={query}
+            teammates={teammates}
+            tickets={page.data}
+          />
         </SelectionProvider>
       </main>
     </div>

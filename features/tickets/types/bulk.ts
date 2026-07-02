@@ -47,3 +47,6 @@ export type BulkRequest = SimulationParams & {
   /** Only for `action: 'assign'`. Validated server-side against the known teammate list. */
   assigneeId?: string;
 } & ({ mode: "include"; ids: Array<string> } | { mode: "all"; filter: TableFilter; excluded: Array<string> });
+
+/** Result of `executeBulkAction` — mirrors the endpoint's dual `200`/`202` response shape. */
+export type BulkActionOutcome = { mode: "sync"; result: BulkResult } | { mode: "async"; jobId: string; total: number };

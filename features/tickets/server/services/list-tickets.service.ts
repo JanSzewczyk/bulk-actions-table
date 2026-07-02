@@ -1,7 +1,7 @@
 import "server-only";
 
-import { getTeammates, queryTickets } from "~/features/tickets/server/db";
-import type { TableQuery, TicketsPage } from "~/features/tickets/types/table-query";
+import { countIdsOutsideFilter, getTeammates, queryTickets } from "~/features/tickets/server/db";
+import type { TableFilter, TableQuery, TicketsPage } from "~/features/tickets/types/table-query";
 import type { Teammate } from "~/features/tickets/types/teammate";
 import type { Ticket, TicketListItem } from "~/features/tickets/types/ticket";
 
@@ -27,6 +27,11 @@ function toListItem(ticket: Ticket, teammateById: Map<string, Teammate>): Ticket
     status: ticket.status,
     subject: ticket.subject
   };
+}
+
+/** How many of the given ids fall outside the given filter — backs the toolbar's "N outside filter" hint. */
+export function countSelectionOutsideFilter(ids: Array<string>, filter: TableFilter): number {
+  return countIdsOutsideFilter(ids, filter);
 }
 
 export function listTicketsPage(query: TableQuery): TicketsPage {

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { env } from "~/data/env/server";
+import type { BulkActionOutcome } from "~/features/tickets/types/bulk";
 import type { Job } from "~/features/tickets/types/job";
 import type { Teammate } from "~/features/tickets/types/teammate";
 import type { Ticket } from "~/features/tickets/types/ticket";
@@ -22,6 +23,8 @@ type TicketStore = {
   tickets: Map<string, Ticket>;
   teammates: Array<Teammate>;
   jobs: Map<string, Job>;
+  /** Bulk request outcomes keyed by `Idempotency-Key`, so a retried submit isn't re-executed. */
+  idempotency: Map<string, BulkActionOutcome>;
 };
 
 const STORE_KEY = Symbol.for("bulk-actions-table.tickets-store");
@@ -33,7 +36,7 @@ type GlobalWithStore = typeof globalThis & {
 function createStore(): TicketStore {
   const { tickets, teammates } = generateDataset({ seed: env.DATASET_SEED, size: env.DATASET_SIZE });
   const ticketMap = new Map(tickets.map((ticket) => [ticket.id, ticket]));
-  return { jobs: new Map(), teammates, tickets: ticketMap };
+  return { idempotency: new Map(), jobs: new Map(), teammates, tickets: ticketMap };
 }
 
 /** Returns the process-wide store, generating the dataset lazily on first access. */

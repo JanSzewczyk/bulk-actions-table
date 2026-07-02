@@ -88,6 +88,18 @@ export function clearSelection(): SelectionState {
 }
 
 /**
+ * Drops ids that a bulk action already succeeded on, so a partial failure leaves only the failed ids
+ * selected (ready for a "retry" re-submit). In `include` mode that means removing them from `ids`; in
+ * `all` mode it means adding them to `excluded` so they don't get re-processed by a follow-up action.
+ */
+export function removeIds(state: SelectionState, ids: ReadonlyArray<string>): SelectionState {
+  if (state.mode === SelectionMode.INCLUDE) {
+    return { ids: withRemoved(state.ids, ids), mode: SelectionMode.INCLUDE };
+  }
+  return { excluded: withAdded(state.excluded, ids), filter: state.filter, mode: SelectionMode.ALL };
+}
+
+/**
  * React to a filter change. An `all` selection is scoped to the filter it was created with, so a
  * different filter resets it (the caller surfaces a toast). An `include` selection is the user's
  * explicit intent and survives untouched — some ids may now fall outside the filter, which the
@@ -174,6 +186,7 @@ export type SelectionAction =
   | { type: "DESELECT_PAGE"; pageIds: ReadonlyArray<string> }
   | { type: "SELECT_ALL_MATCHING"; filter: TableFilter }
   | { type: "FILTER_CHANGED"; filter: TableFilter }
+  | { type: "REMOVE_IDS"; ids: ReadonlyArray<string> }
   | { type: "CLEAR" };
 
 /** Thin dispatcher over the pure operations, for the `useReducer` store in `hooks/use-selection.ts`. */
@@ -189,6 +202,8 @@ export function selectionReducer(state: SelectionState, action: SelectionAction)
       return selectAllMatching(action.filter);
     case "FILTER_CHANGED":
       return applyFilterChange(state, action.filter);
+    case "REMOVE_IDS":
+      return removeIds(state, action.ids);
     case "CLEAR":
       return clearSelection();
     default:

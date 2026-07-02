@@ -15,7 +15,8 @@ import { categorizeServiceError, type ServiceResult, serviceErrorFromStatus } fr
 
 const logger = createLogger({ module: "api-client" });
 
-async function getBaseUrl(): Promise<string> {
+/** Exported so a dedicated fetch client (e.g. the bulk endpoint) can build a request `apiFetch` can't express. */
+export async function getBaseUrl(): Promise<string> {
   const headerList = await headers();
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
   if (!host) {
