@@ -13,12 +13,12 @@ import {
 } from "@szum-tech/design-system/components/table";
 import { cn } from "@szum-tech/design-system/utils";
 import { ChevronDownIcon, ChevronsUpDownIcon, ChevronUpIcon } from "lucide-react";
-import { useSelection } from "~/features/tickets/hooks/use-selection";
-import { isSelected, PageCheckboxState, pageCheckboxState } from "~/features/tickets/lib/selection";
-import { formatTicketDate, STATUS_BADGE_VARIANT, STATUS_LABELS } from "~/features/tickets/lib/ticket-presentation";
+import { useSelection } from "~/features/tickets/context/selection.context";
 import type { Teammate } from "~/features/tickets/types";
 import { SortDirection, type TableQuery, type TicketSortField } from "~/features/tickets/types/table-query";
 import type { TicketListItem } from "~/features/tickets/types/ticket";
+import { isSelected, PageCheckboxState, pageCheckboxState } from "~/features/tickets/utils/selection";
+import { formatTicketDate, STATUS_BADGE_VARIANT, STATUS_LABELS } from "~/features/tickets/utils/ticket-presentation";
 import { TeammateItem } from "./teammate-item";
 
 type TicketsTableProps = {

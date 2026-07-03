@@ -1,11 +1,11 @@
 "use client";
 
 import { Button } from "@szum-tech/design-system/components/button";
-import { useSelection } from "~/features/tickets/hooks/use-selection";
-import { PageCheckboxState, pageCheckboxState, selectionCount } from "~/features/tickets/lib/selection";
-import { formatCount } from "~/features/tickets/lib/ticket-presentation";
+import { useSelection } from "~/features/tickets/context/selection.context";
 import { SelectionMode } from "~/features/tickets/types/selection";
 import type { TableFilter } from "~/features/tickets/types/table-query";
+import { PageCheckboxState, pageCheckboxState, selectionCount } from "~/features/tickets/utils/selection";
+import { formatCount } from "~/features/tickets/utils/ticket-presentation";
 
 type SelectionBannerProps = {
   /** Ids of the rows currently on screen — the header checkbox scopes to these. */

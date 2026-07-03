@@ -1,6 +1,6 @@
 import { expect, fn } from "storybook/test";
 import preview from "~/.storybook/preview";
-import { SelectionProvider } from "~/features/tickets/hooks/use-selection";
+import { SelectionProvider } from "~/features/tickets/context/selection.context";
 import { SortDirection, TicketSortField } from "~/features/tickets/types/table-query";
 import type { Teammate } from "~/features/tickets/types/teammate";
 import type { TicketListItem } from "~/features/tickets/types/ticket";

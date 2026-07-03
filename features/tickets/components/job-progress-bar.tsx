@@ -1,6 +1,6 @@
 import { Progress } from "@szum-tech/design-system/components/progress";
-import { formatCount } from "~/features/tickets/lib/ticket-presentation";
 import type { JobProgress } from "~/features/tickets/types/job";
+import { formatCount } from "~/features/tickets/utils/ticket-presentation";
 
 type JobProgressBarProps = {
   progress: JobProgress;

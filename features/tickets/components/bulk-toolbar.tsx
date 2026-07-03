@@ -4,12 +4,12 @@ import { Button } from "@szum-tech/design-system/components/button";
 import { ArchiveIcon, Trash2Icon, XIcon } from "lucide-react";
 import * as React from "react";
 import { UNDO_WINDOW_MS } from "~/features/tickets/constants";
-import { useSelection } from "~/features/tickets/hooks/use-selection";
-import { hasSelection, selectionCount } from "~/features/tickets/lib/selection";
-import { formatCount } from "~/features/tickets/lib/ticket-presentation";
+import { useSelection } from "~/features/tickets/context/selection.context";
 import { BulkAction, type BulkRequest } from "~/features/tickets/types/bulk";
 import { SelectionMode } from "~/features/tickets/types/selection";
 import type { Teammate } from "~/features/tickets/types/teammate";
+import { hasSelection, selectionCount } from "~/features/tickets/utils/selection";
+import { formatCount } from "~/features/tickets/utils/ticket-presentation";
 import { AssignPopover } from "./assign-popover";
 import { ConfirmDialog } from "./confirm-dialog";
 

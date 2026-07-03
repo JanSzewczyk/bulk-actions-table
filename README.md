@@ -69,7 +69,7 @@ Row selection is a hybrid of two representations, not a single `Set<id>`:
   request scale independently of how many rows are visible.
 
 A plain `Set<id>` can't represent "all matching, minus a few" without enumerating every id; a page-scoped selection
-can't answer "select all matching" at all. The reducer (`features/tickets/lib/selection.ts`) is pure and framework-free
+can't answer "select all matching" at all. The reducer (`features/tickets/utils/selection.ts`) is pure and framework-free
 — a `useReducer` + Context wraps it (`use-selection.ts`) so the selection survives `router.refresh()` and filter/page
 navigation without being tied to the query cache.
 
@@ -166,7 +166,7 @@ At least two decisions where AI-assisted output was deliberately overridden:
 ## 🧪 Tests
 
 The single piece of logic under test is the selection reducer
-(`features/tickets/lib/selection.test.ts`) — it's the only logic in this project where a bug is both silent and
+(`features/tickets/utils/selection.test.ts`) — it's the only logic in this project where a bug is both silent and
 destructive (a bulk action running against the wrong set of ids), and the brief itself points at this exact spot
 ("test the selection logic across pagination"). Cases covered:
 

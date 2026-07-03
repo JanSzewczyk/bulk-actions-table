@@ -7,9 +7,9 @@ import { Select, SelectContent, SelectItem } from "@szum-tech/design-system/comp
 import { Spinner } from "@szum-tech/design-system/components/spinner";
 import { SearchIcon, XIcon } from "lucide-react";
 import * as React from "react";
-import { STATUS_LABELS } from "~/features/tickets/lib/ticket-presentation";
 import type { TableQuery } from "~/features/tickets/types/table-query";
 import { type TicketStatus, TicketStatuses } from "~/features/tickets/types/ticket";
+import { STATUS_LABELS } from "~/features/tickets/utils/ticket-presentation";
 
 const ALL_STATUSES = "ALL";
 const SEARCH_DEBOUNCE_MS = 350;

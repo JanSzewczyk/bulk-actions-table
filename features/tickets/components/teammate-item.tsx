@@ -2,8 +2,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@szum-tech/design-system/co
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@szum-tech/design-system/components/item";
 import { UserIcon } from "lucide-react";
 import type * as React from "react";
-import { initials } from "~/features/tickets/lib/ticket-presentation";
 import type { Teammate } from "~/features/tickets/types/teammate";
+import { initials } from "~/features/tickets/utils/ticket-presentation";
 
 type TeammateItemProps = {
   /** `null` renders the "Unassigned" state — same avatar/title/description layout, no real teammate. */

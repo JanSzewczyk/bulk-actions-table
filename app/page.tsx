@@ -4,7 +4,7 @@ import * as React from "react";
 import { GithubLinkButton } from "~/components/ui/github-link-button";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
 import { DevPanel, DevPanelFallback, TicketsTableSection } from "~/features/tickets/components";
-import { SelectionProvider } from "~/features/tickets/hooks/use-selection";
+import { SelectionProvider } from "~/features/tickets/context/selection.context";
 import { parseTableQuery } from "~/features/tickets/schemas";
 import { getTeammates, getTicketsPage } from "~/features/tickets/server";
 import { bulkActionAction } from "~/features/tickets/server/actions/bulk-action.action";

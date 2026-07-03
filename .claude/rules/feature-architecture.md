@@ -35,11 +35,24 @@ features/{domain}/
 │   ├── {entity}.ts                 # shared types (see section below)
 │   ├── {filter}.ts
 │   └── index.ts                    # barrel — re-exports all types/
+├── utils/                          # optional — pure, framework-free logic (reducers, formatters,
+│   ├── {name}.ts                   # URL/query builders); every file here should be unit-tested
+│   └── {name}.test.ts
+├── context/                        # optional — only files that call `React.createContext`
+│   └── use-{name}.tsx              # Context + Provider + consumer hook, co-located in one file
+├── hooks/                          # optional — client hooks that don't define a Context
+│   └── use-{name}.tsx
 └── test/
     └── builders/
         ├── {entity}.builder.ts     # mimicry-js + faker
         └── index.ts
 ```
+
+`utils/`, `context/`, and `hooks/` are only added when a feature actually needs client-side state/logic
+beyond the server-driven zones above — add them on demand, don't scaffold empty ones. Keep the
+distinction: `utils/` is pure and framework-free (no React imports, straightforward to unit-test);
+`context/` is exclusively for hooks that define a `React.createContext`; everything else client-side
+(effects, polling, subscriptions) goes in `hooks/`.
 
 **No top-level `index.ts`** for the feature. Import from sub-paths directly:
 
