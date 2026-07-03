@@ -47,7 +47,11 @@ export function SelectionBanner({ pageIds, total, filter }: SelectionBannerProps
   return (
     <div className="flex flex-wrap items-center justify-center gap-2 rounded-md border border-border bg-muted/30 px-4 py-2 text-body-sm">
       <span>
-        Selected <strong>{selection.ids.size}</strong> on this page.
+        {/* `wholePageSelected` guarantees every id in `pageIds` is selected, so that — not the running
+        cross-page total in `selection.ids.size` — is what "on this page" means. Without this, selecting
+        a second page on top of an already-selected first page mislabels the combined total as if it
+        were all sitting on the current page. */}
+        Selected <strong>{pageIds.length}</strong> on this page.
       </span>
       <Button onClick={() => dispatch({ filter, type: "SELECT_ALL_MATCHING" })} size="sm" variant="link">
         Select all {formatCount(total)} matching
