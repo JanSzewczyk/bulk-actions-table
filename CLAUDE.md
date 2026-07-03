@@ -140,9 +140,9 @@ Actions/pages only ever import `server/api`; route handlers only ever import `se
 ### Tickets Feature (Bulk Actions Table)
 
 `features/tickets/` is the concrete example of the structure above — a ~8,000-row ticket table with a hybrid
-selection model (`include` ids-set ⇄ `all` filter+excluded, in `lib/selection.ts`, unit-tested), three bulk actions
+selection model (`include` ids-set ⇄ `all` filter+excluded, in `utils/selection.ts`, unit-tested), three bulk actions
 with partial-failure retry, and a sync/async-job execution split (`BULK_ASYNC_THRESHOLD` in `data/env/server.ts`,
-default 50). See the README's dedicated sections (Selection Model, API Contract, Partial Failure) for the full
+default 400). See the README's dedicated sections (Selection Model, API Contract, Partial Failure) for the full
 contract — this file only tracks pitfalls specific to building on it.
 
 ### Environment Variables

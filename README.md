@@ -95,10 +95,16 @@ Idempotency-Key: <uuid>   ← required; a retried submit with the same key retur
   "mode": "all", "filter": { q, status }, "excluded": string[] }
 ```
 
+**Deliberately not in this payload:** `failureRate`, `seed`, and `concurrency`. An earlier draft of the contract
+had the caller pass these alongside the request; I moved them server-side instead (`GET`/`PATCH
+/api/dev/simulation`, edited from the Dev panel) so a client can influence *what* happens to its own tickets but
+never *how reliably* the simulated backend behaves while doing it — the same separation a real deployment would
+have between request payloads and ops-only feature flags.
+
 Two response shapes, chosen by the server, not the caller:
 
 - **`200 { succeeded: string[], failed: { id, reason }[] }`** — executed synchronously. Used when `mode: "include"`
-  and the id count is below `BULK_ASYNC_THRESHOLD` (default 50).
+  and the id count is below `BULK_ASYNC_THRESHOLD` (default 400).
 - **`202 { jobId, status, total }`** — escalated to a background job. Used when `mode: "all"` (size isn't known
   precisely until execution) or the id count meets/exceeds the threshold. Progress is polled via
   `GET /api/jobs/:id` (counters only — `status/total/processed/succeeded/failedCount`, never the failure list itself,
@@ -110,6 +116,12 @@ job).** The production path for this would swap the in-memory `globalThis` store
 queue/worker; the front end wouldn't change at all. The explicit limitation of the current mock: it's a single
 Node process (`globalThis` Map), so it doesn't survive a restart or scale across serverless instances — by design,
 since a durable store is out of scope for this assignment.
+
+**Dev panel endpoint (`/api/dev/simulation`) is intentionally global and unauthenticated.** It mutates one shared
+`failureRate`/`seed`/`concurrency` record used by every request, with no per-session scoping and no auth check. For a
+single-evaluator take-home this is the simplest way to make the required failure simulation controllable from the UI;
+it would need per-session scoping (or a real auth/rate-limit gate) before this pattern reached a multi-tenant
+deployment, since anyone hitting a public URL could otherwise change what every other visitor experiences.
 
 ## ⚠️ Partial Failure
 
@@ -134,7 +146,7 @@ At least two decisions where AI-assisted output was deliberately overridden:
    this dataset size, each triggering a `setState` — the progress bar meant to improve UX would instead freeze the
    tab. SSE only makes sense with the same coalescing complexity polling already gets for free.
 2. **All-async → threshold escalation.** AI defaulted every bulk operation into an async job. I introduced a
-   threshold (`BULK_ASYNC_THRESHOLD`, default 50): small operations shouldn't pay job ceremony (an extra round-trip,
+   threshold (`BULK_ASYNC_THRESHOLD`, default 400): small operations shouldn't pay job ceremony (an extra round-trip,
    polling, a progress bar for half a second), and large ones can't be synchronous (timeout risk, no feedback while
    waiting). The threshold is a configurable env var, directly answering the brief's question about how the API
    contract should shape execution.
@@ -162,6 +174,15 @@ At least two decisions where AI-assisted output was deliberately overridden:
   retry, end to end against a running server.
 - **A real queue (e.g. BullMQ) behind the same `POST /api/tickets/bulk` contract** — the contract was designed so
   this swap wouldn't require any front-end change.
+- **Test coverage for the async job lifecycle** (`use-job-polling.tsx`, `use-active-job.tsx`) — currently exercised
+  manually and by code inspection only. This is the highest-complexity code in the feature (recursive polling, a
+  bounded-retry give-up path, `sessionStorage` resume), so it's the best remaining candidate for a dedicated test,
+  ahead of anything else on this list.
+- **Exercise the `Idempotency-Key` mechanism from the client**, not just implement it server-side — right now every
+  submit generates a fresh key, so a genuine transport-level retry (as opposed to a user-triggered "Retry (N)", which
+  is deliberately a new request against a smaller subset) never actually replays one. A single automatic retry on a
+  network-level failure, reusing the same key, would make the existing server-side idempotency cache do real work
+  instead of sitting unexercised.
 
 ## 🧪 Tests
 

@@ -7,8 +7,13 @@ import { UNDO_WINDOW_MS } from "~/features/tickets/constants";
 import { useSelection, useSelectionFilterSync } from "~/features/tickets/context/selection.context";
 import { type ActiveJob, useActiveJob } from "~/features/tickets/hooks/use-active-job";
 import { useOutsideFilterCount } from "~/features/tickets/hooks/use-outside-filter-count";
-import { BulkAction, type BulkActionOutcome, type BulkRequest } from "~/features/tickets/types/bulk";
-import type { JobProgress } from "~/features/tickets/types/job";
+import {
+  BulkAction,
+  type BulkActionOutcome,
+  type BulkRequest,
+  type FailureReason
+} from "~/features/tickets/types/bulk";
+import { type JobProgress, JobStatus } from "~/features/tickets/types/job";
 import {
   type Pagination,
   SortDirection,
@@ -26,6 +31,8 @@ import {
   formatDeleteUndoMessage,
   formatJobCompletedFailureMessage,
   formatJobCompletedSuccessMessage,
+  formatJobCrashedMessage,
+  formatJobLostMessage,
   formatJobStartedMessage
 } from "~/features/tickets/utils/bulk-outcome";
 import { mergeTableQuery, stringifyTableQuery } from "~/features/tickets/utils/table-query-url";
@@ -74,9 +81,25 @@ export function TicketsTableSection({
   const [isPending, startTransition] = React.useTransition();
   const [isSubmitting, startSubmitTransition] = React.useTransition();
   const { selection, dispatch } = useSelection();
+  // Ids currently in flight for the row-level pending/spinner state — cleared as soon as the
+  // request settles, regardless of the sync/async outcome (an escalated 202 response is itself fast).
+  const [pendingIds, setPendingIds] = React.useState<ReadonlySet<string>>(new Set());
+  // Failed-and-still-selected ids from the last outcome, id → reason, for the row-level error marker.
+  // Cleared per id as soon as a later attempt (retry/undo) succeeds on it.
+  const [failedIds, setFailedIds] = React.useState<ReadonlyMap<string, FailureReason>>(new Map());
 
   const filter: TableFilter = { q: query.q, status: query.status };
   const pageIds = tickets.map((ticket) => ticket.id);
+
+  /** Only the visible page can show per-row pending — `mode: 'all'` never materializes every id. */
+  function computeVisiblePendingIds(request: BulkRequest): Set<string> {
+    if (request.mode === "include") {
+      const targetIds = new Set(request.ids);
+      return new Set(pageIds.filter((id) => targetIds.has(id)));
+    }
+    const excluded = new Set(request.excluded);
+    return new Set(pageIds.filter((id) => !excluded.has(id)));
+  }
 
   useSelectionFilterSync(filter, () => toast.info("Selection cleared after the filter changed."));
   const outsideFilterCount = useOutsideFilterCount({ filter, onOutsideFilterCountAction, selection });
@@ -94,16 +117,29 @@ export function TicketsTableSection({
       dispatch({ ids: succeeded, type: "REMOVE_IDS" });
     }
 
+    // Row-level error marker: a later attempt clears a ticket's own failure, then it may pick up a
+    // fresh one from this same outcome.
+    setFailedIds((previous) => {
+      const next = new Map(previous);
+      for (const id of succeeded) {
+        next.delete(id);
+      }
+      for (const item of failed) {
+        next.set(item.id, item.reason);
+      }
+      return next;
+    });
+
     // Delete gets its own undo toast below instead of a plain success toast — showing both would
     // duplicate the same message.
     if (failed.length === 0 && request.action !== BulkAction.DELETE) {
       toast.success(formatBulkSuccessMessage(request.action, succeeded.length));
     } else if (failed.length > 0) {
-      const failedIds = failed.map((item) => item.id);
+      const failedIdList = failed.map((item) => item.id);
       toast.error(formatBulkPartialFailureMessage(request.action, succeeded.length, failed.length), {
         action: {
           label: `Retry (${failed.length})`,
-          onClick: () => submitBulkRequest(buildRetryRequest(request, failedIds))
+          onClick: () => submitBulkRequest(buildRetryRequest(request, failedIdList))
         },
         // A toast with a retry action needs to outlive sonner's default ~4s — otherwise the one
         // affordance that matters most on a partial failure disappears before it can be clicked.
@@ -126,8 +162,10 @@ export function TicketsTableSection({
 
   function submitBulkRequest(request: BulkRequest) {
     const idempotencyKey = crypto.randomUUID();
+    setPendingIds(computeVisiblePendingIds(request));
     startSubmitTransition(async () => {
       const result = await onBulkAction(request, idempotencyKey);
+      setPendingIds(new Set());
       if (!result.success) {
         toast.error(result.error);
         return;
@@ -152,6 +190,25 @@ export function TicketsTableSection({
   const { activeJob, jobProgress, startJob } = useActiveJob({
     onCompleted: (completedJob, finalProgress) => {
       router.refresh();
+
+      // The runner threw before finishing — distinct from a normal completion, since `processed`
+      // reflects only what ran before the crash, not the full requested batch.
+      if (finalProgress.status === JobStatus.FAILED) {
+        toast.error(formatJobCrashedMessage(finalProgress), {
+          action:
+            finalProgress.failedCount > 0
+              ? {
+                  label: `Retry failed (${finalProgress.failedCount})`,
+                  onClick: () => {
+                    void retryJobFailures(completedJob);
+                  }
+                }
+              : undefined,
+          duration: UNDO_WINDOW_MS
+        });
+        return;
+      }
+
       if (finalProgress.failedCount > 0) {
         toast.error(formatJobCompletedFailureMessage(finalProgress), {
           action: {
@@ -165,6 +222,13 @@ export function TicketsTableSection({
       } else {
         toast.success(formatJobCompletedSuccessMessage(finalProgress));
       }
+    },
+    // Polling gave up after repeated failed requests (lost connection, or the server lost the job —
+    // e.g. a restart wiped the in-memory store). `router.refresh()` lets the user see the table's
+    // actual current state instead of trusting a job we can no longer track.
+    onLost: () => {
+      router.refresh();
+      toast.error(formatJobLostMessage());
     },
     onPollAction: onPollJobAction
   });
@@ -191,8 +255,9 @@ export function TicketsTableSection({
   return (
     <div className="flex flex-col gap-4">
       <TableControls isPending={isPending} onQueryChange={applyQuery} query={query} />
-      {jobProgress ? <JobProgressBar progress={jobProgress} /> : null}
+      {jobProgress && activeJob ? <JobProgressBar action={activeJob.action} progress={jobProgress} /> : null}
       <BulkToolbar
+        filter={filter}
         isSubmitting={isSubmitting}
         jobRunning={activeJob !== null}
         onSubmit={submitBulkRequest}
@@ -203,8 +268,10 @@ export function TicketsTableSection({
       <SelectionBanner filter={filter} pageIds={pageIds} total={pagination.total} />
       <TicketsTable
         direction={query.direction}
+        failedIds={failedIds}
         isPending={isPending}
         onSortChange={handleSortChange}
+        pendingIds={pendingIds}
         sort={query.sort}
         teammates={teammates}
         tickets={tickets}

@@ -17,6 +17,19 @@ const ACTION_VERB: Record<BulkAction, string> = {
   [BulkAction.UNASSIGN]: "Unassigned"
 };
 
+const ACTION_PROGRESS_VERB: Record<BulkAction, string> = {
+  [BulkAction.ARCHIVE]: "Archiving",
+  [BulkAction.ASSIGN]: "Assigning",
+  [BulkAction.DELETE]: "Deleting",
+  [BulkAction.RESTORE]: "Restoring",
+  [BulkAction.UNASSIGN]: "Unassigning"
+};
+
+/** Label for the async job progress bar, e.g. "Archiving…" — read from the job, not a generic string. */
+export function formatJobProgressLabel(action: BulkAction): string {
+  return `${ACTION_PROGRESS_VERB[action]}…`;
+}
+
 /** Re-submits only the ids a bulk action failed on, keeping the same action/assignee. */
 export function buildRetryRequest(source: BulkRequest, ids: Array<string>): BulkRequest {
   return {
@@ -62,4 +75,14 @@ export function formatJobCompletedFailureMessage(progress: JobProgress): string 
 
 export function formatJobCompletedSuccessMessage(progress: JobProgress): string {
   return `Background job finished: ${formatCount(progress.succeeded)} tickets.`;
+}
+
+/** Shown when the runner threw before finishing — distinct from a normal completion, partial or not. */
+export function formatJobCrashedMessage(progress: JobProgress): string {
+  return `Background job stopped unexpectedly after ${formatCount(progress.processed)} of ${formatCount(progress.total)} tickets.`;
+}
+
+/** Shown when polling itself could not reach the job (lost connection, or the server lost the job). */
+export function formatJobLostMessage(): string {
+  return "Lost track of the background job. Refresh to check whether it finished.";
 }

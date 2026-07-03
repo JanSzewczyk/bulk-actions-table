@@ -12,6 +12,7 @@ import {
   isSelected,
   PageCheckboxState,
   pageCheckboxState,
+  removeIds,
   selectAllMatching,
   selectCurrentPage,
   selectionCount,
@@ -173,6 +174,30 @@ describe("pageCheckboxState", () => {
   });
 });
 
+describe("removeIds", () => {
+  test("drops succeeded ids from an include selection, leaving the rest selected", () => {
+    const next = removeIds(include("t1", "t2", "t3"), ["t1", "t3"]);
+    expect(isSelected(next, "t1")).toBe(false);
+    expect(isSelected(next, "t2")).toBe(true);
+    expect(isSelected(next, "t3")).toBe(false);
+  });
+
+  test("in all mode, adds succeeded ids to excluded instead of touching the filter", () => {
+    const next = removeIds(all(NO_FILTER, "t9"), ["t1", "t2"]);
+    expect(next.mode).toBe(SelectionMode.ALL);
+    expect(isSelected(next, "t1")).toBe(false);
+    expect(isSelected(next, "t2")).toBe(false);
+    expect(isSelected(next, "t9")).toBe(false);
+  });
+
+  test("a partial failure leaves only the failed ids selected, ready for retry", () => {
+    // Simulates the outcome handler: succeeded ids are removed, failed ids are untouched.
+    const afterOutcome = removeIds(include("t1", "t2", "t3"), ["t1", "t3"]);
+    expect(selectionCount(afterOutcome, 0)).toBe(1);
+    expect(isSelected(afterOutcome, "t2")).toBe(true);
+  });
+});
+
 describe("selectionReducer", () => {
   test("TOGGLE_ROW delegates to toggleRow", () => {
     const next = selectionReducer(EMPTY_SELECTION, { id: "t1", type: "TOGGLE_ROW" });
@@ -192,6 +217,12 @@ describe("selectionReducer", () => {
   test("CLEAR empties the selection", () => {
     const next = selectionReducer(all(NO_FILTER), { type: "CLEAR" });
     expect(hasSelection(next)).toBe(false);
+  });
+
+  test("REMOVE_IDS delegates to removeIds", () => {
+    const next = selectionReducer(include("t1", "t2"), { ids: ["t1"], type: "REMOVE_IDS" });
+    expect(isSelected(next, "t1")).toBe(false);
+    expect(isSelected(next, "t2")).toBe(true);
   });
 
   test("full escalation flow: page → all → deselect one → clear", () => {

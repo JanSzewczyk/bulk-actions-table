@@ -9,6 +9,8 @@ import type { Pagination } from "./table-query";
 
 export const JobStatus = {
   COMPLETED: "completed",
+  /** The runner threw before finishing — terminal, so polling stops instead of waiting forever. */
+  FAILED: "failed",
   RUNNING: "running"
 } as const;
 

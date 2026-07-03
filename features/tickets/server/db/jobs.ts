@@ -49,3 +49,15 @@ export function finalizeJob(jobId: string): void {
   }
   job.status = JobStatus.COMPLETED;
 }
+
+/**
+ * Marks a job `FAILED` after the runner throws. Without this, a crashed runner leaves the job at
+ * `RUNNING` forever — the client keeps polling a batch that will never progress or complete.
+ */
+export function failJob(jobId: string): void {
+  const job = getStore().jobs.get(jobId);
+  if (!job) {
+    return;
+  }
+  job.status = JobStatus.FAILED;
+}

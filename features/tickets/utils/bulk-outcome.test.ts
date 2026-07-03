@@ -9,6 +9,7 @@ import {
   formatDeleteUndoMessage,
   formatJobCompletedFailureMessage,
   formatJobCompletedSuccessMessage,
+  formatJobProgressLabel,
   formatJobStartedMessage
 } from "./bulk-outcome";
 
@@ -73,5 +74,15 @@ describe("formatJobCompletedSuccessMessage", () => {
     const progress = { failedCount: 0, processed: 10, status: JobStatus.COMPLETED, succeeded: 10, total: 10 };
 
     expect(formatJobCompletedSuccessMessage(progress)).toBe("Background job finished: 10 tickets.");
+  });
+});
+
+describe("formatJobProgressLabel", () => {
+  test("uses a present-continuous verb per action, read from the job rather than a generic label", () => {
+    expect(formatJobProgressLabel(BulkAction.ARCHIVE)).toBe("Archiving…");
+    expect(formatJobProgressLabel(BulkAction.ASSIGN)).toBe("Assigning…");
+    expect(formatJobProgressLabel(BulkAction.DELETE)).toBe("Deleting…");
+    expect(formatJobProgressLabel(BulkAction.RESTORE)).toBe("Restoring…");
+    expect(formatJobProgressLabel(BulkAction.UNASSIGN)).toBe("Unassigning…");
   });
 });

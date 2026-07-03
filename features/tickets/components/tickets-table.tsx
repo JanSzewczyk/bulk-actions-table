@@ -3,6 +3,7 @@
 import { Badge } from "@szum-tech/design-system/components/badge";
 import { Button } from "@szum-tech/design-system/components/button";
 import { Checkbox } from "@szum-tech/design-system/components/checkbox";
+import { Spinner } from "@szum-tech/design-system/components/spinner";
 import {
   Table,
   TableBody,
@@ -11,14 +12,21 @@ import {
   TableHeader,
   TableRow
 } from "@szum-tech/design-system/components/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@szum-tech/design-system/components/tooltip";
 import { cn } from "@szum-tech/design-system/utils";
-import { ChevronDownIcon, ChevronsUpDownIcon, ChevronUpIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronsUpDownIcon, ChevronUpIcon, TriangleAlertIcon } from "lucide-react";
 import { useSelection } from "~/features/tickets/context/selection.context";
 import type { Teammate } from "~/features/tickets/types";
+import type { FailureReason } from "~/features/tickets/types/bulk";
 import { SortDirection, type TableQuery, type TicketSortField } from "~/features/tickets/types/table-query";
 import type { TicketListItem } from "~/features/tickets/types/ticket";
 import { isSelected, PageCheckboxState, pageCheckboxState } from "~/features/tickets/utils/selection";
-import { formatTicketDate, STATUS_BADGE_VARIANT, STATUS_LABELS } from "~/features/tickets/utils/ticket-presentation";
+import {
+  FAILURE_REASON_LABELS,
+  formatTicketDate,
+  STATUS_BADGE_VARIANT,
+  STATUS_LABELS
+} from "~/features/tickets/utils/ticket-presentation";
 import { TeammateItem } from "./teammate-item";
 
 type TicketsTableProps = {
@@ -27,6 +35,10 @@ type TicketsTableProps = {
   direction: TableQuery["direction"];
   isPending: boolean;
   teammates: Array<Teammate>;
+  /** Ids currently in flight for a bulk request — rendered dimmed with a spinner instead of a checkbox. */
+  pendingIds: ReadonlySet<string>;
+  /** Ids still selected after a partial failure, with the reason — rendered with an error marker. */
+  failedIds: ReadonlyMap<string, FailureReason>;
   onSortChange(field: TicketSortField): void;
 };
 
@@ -72,7 +84,16 @@ function SortableHeader({ field, label, activeField, direction, onSortChange }: 
  * written to the client-side selection store. Dims while a navigation is pending so the previous
  * page stays readable instead of flashing (a `keepPreviousData`-style feel).
  */
-export function TicketsTable({ tickets, sort, direction, isPending, onSortChange, teammates }: TicketsTableProps) {
+export function TicketsTable({
+  tickets,
+  sort,
+  direction,
+  isPending,
+  onSortChange,
+  teammates,
+  pendingIds,
+  failedIds
+}: TicketsTableProps) {
   const { selection, dispatch } = useSelection();
   const pageIds = tickets.map((ticket) => ticket.id);
   const teammateById = new Map(teammates.map((teammate) => [teammate.id, teammate]));
@@ -137,20 +158,39 @@ export function TicketsTable({ tickets, sort, direction, isPending, onSortChange
           tickets.map((ticket) => {
             const selected = isSelected(selection, ticket.id);
             const assignee = ticket.assigneeId === null ? null : (teammateById.get(ticket.assigneeId) ?? null);
+            const rowPending = pendingIds.has(ticket.id);
+            const failureReason = failedIds.get(ticket.id);
             return (
               <TableRow
-                className={cn(selected && "bg-muted/40")}
+                aria-busy={rowPending}
+                className={cn(selected && "bg-muted/40", rowPending && "pointer-events-none opacity-60")}
                 data-state={selected ? "selected" : undefined}
                 key={ticket.id}
               >
                 <TableCell>
-                  <Checkbox
-                    aria-label={`Select ticket ${ticket.subject}`}
-                    checked={selected}
-                    onCheckedChange={() => dispatch({ id: ticket.id, type: "TOGGLE_ROW" })}
-                  />
+                  {rowPending ? (
+                    <Spinner aria-label={`Processing ${ticket.subject}`} className="size-4" />
+                  ) : (
+                    <Checkbox
+                      aria-label={`Select ticket ${ticket.subject}`}
+                      checked={selected}
+                      onCheckedChange={() => dispatch({ id: ticket.id, type: "TOGGLE_ROW" })}
+                    />
+                  )}
                 </TableCell>
-                <TableCell className="max-w-80 truncate font-medium">{ticket.subject}</TableCell>
+                <TableCell className="max-w-80 truncate font-medium">
+                  <span className="flex items-center gap-1.5">
+                    {failureReason ? (
+                      <Tooltip>
+                        <TooltipTrigger aria-label="Last action failed on this ticket" tabIndex={-1}>
+                          <TriangleAlertIcon className="size-3.5 shrink-0 text-error" />
+                        </TooltipTrigger>
+                        <TooltipContent>{FAILURE_REASON_LABELS[failureReason]}</TooltipContent>
+                      </Tooltip>
+                    ) : null}
+                    <span className="truncate">{ticket.subject}</span>
+                  </span>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{ticket.customer}</TableCell>
                 <TableCell>
                   <Badge variant={STATUS_BADGE_VARIANT[ticket.status]}>{STATUS_LABELS[ticket.status]}</Badge>

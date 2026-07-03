@@ -12,6 +12,8 @@ export type ActiveJob = { jobId: string; action: BulkAction; assigneeId?: string
 type UseActiveJobOptions = {
   onPollAction(jobId: string): ActionResponse<JobProgress>;
   onCompleted(completedJob: ActiveJob, finalProgress: JobProgress): void;
+  /** Polling gave up on this job (see `useJobPolling`) — the caller should tell the user and move on. */
+  onLost(lostJob: ActiveJob): void;
 };
 
 type UseActiveJobResult = {
@@ -39,7 +41,7 @@ function readStoredActiveJob(): ActiveJob | null {
  * (toasts, retry prompts) — that's UI-specific and stays with the caller via `onCompleted`, the same
  * way `useJobPolling` itself only reports progress and defers to a callback.
  */
-export function useActiveJob({ onPollAction, onCompleted }: UseActiveJobOptions): UseActiveJobResult {
+export function useActiveJob({ onPollAction, onCompleted, onLost }: UseActiveJobOptions): UseActiveJobResult {
   const [activeJob, setActiveJob] = React.useState<ActiveJob | null>(null);
 
   // Resume polling a job that was still running when the page was refreshed. Read in a mount effect
@@ -64,6 +66,14 @@ export function useActiveJob({ onPollAction, onCompleted }: UseActiveJobOptions)
       setActiveJob(null);
       if (completedJob) {
         onCompleted(completedJob, finalProgress);
+      }
+    },
+    onLost: () => {
+      const lostJob = activeJob;
+      sessionStorage.removeItem(ACTIVE_JOB_STORAGE_KEY);
+      setActiveJob(null);
+      if (lostJob) {
+        onLost(lostJob);
       }
     },
     onPollAction

@@ -3,6 +3,7 @@ import "server-only";
 import { env } from "~/data/env/server";
 import {
   createJob,
+  failJob,
   getIdempotentResult,
   getMatchingTicketIds,
   getSimulationParams,
@@ -67,11 +68,14 @@ export async function executeBulkAction(
     recordIdempotentResult(idempotencyKey, outcome);
 
     // Fire-and-forget: the route must respond `202` immediately, not wait for the batch to finish.
+    // `failJob` here is what stops the client from polling a batch that will never progress or
+    // complete — without it, a runner crash leaves the job at `RUNNING` forever.
     void runJob(jobId, targetIds, request.action, request.assigneeId, simulation).catch((caught: unknown) => {
       logger.error(
         { action: request.action, error: caught instanceof Error ? caught.message : String(caught), jobId },
         "Background job crashed"
       );
+      failJob(jobId);
     });
 
     return [null, outcome];

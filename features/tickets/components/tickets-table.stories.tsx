@@ -1,6 +1,7 @@
 import { expect, fn } from "storybook/test";
 import preview from "~/.storybook/preview";
 import { SelectionProvider } from "~/features/tickets/context/selection.context";
+import { FailureReason } from "~/features/tickets/types/bulk";
 import { SortDirection, TicketSortField } from "~/features/tickets/types/table-query";
 import type { Teammate } from "~/features/tickets/types/teammate";
 import type { TicketListItem } from "~/features/tickets/types/ticket";
@@ -41,8 +42,10 @@ const tickets: Array<TicketListItem> = [
 
 const baseArgs = {
   direction: SortDirection.DESC,
+  failedIds: new Map<string, FailureReason>(),
   isPending: false,
   onSortChange: fn(),
+  pendingIds: new Set<string>(),
   sort: TicketSortField.CREATED_AT,
   teammates,
   tickets
@@ -116,4 +119,22 @@ export const Pending = meta.story({
 Pending.test("Marks the body as busy while a navigation is pending", async ({ canvasElement }) => {
   const body = canvasElement.querySelector("tbody");
   await expect(body).toHaveAttribute("aria-busy", "true");
+});
+
+export const RowSubmitting = meta.story({
+  args: { ...baseArgs, pendingIds: new Set(["t1"]) }
+});
+
+RowSubmitting.test("Shows a spinner instead of a checkbox on the row in flight", async ({ canvasElement }) => {
+  const rows = canvasElement.querySelectorAll("tbody tr");
+  await expect(rows[0]).toHaveAttribute("aria-busy", "true");
+  await expect(rows[0]?.querySelector("svg")).toBeVisible();
+});
+
+export const RowFailed = meta.story({
+  args: { ...baseArgs, failedIds: new Map([["t2", FailureReason.CONFLICT]]) }
+});
+
+RowFailed.test("Shows an error marker on a row that failed and stayed selected", async ({ canvas }) => {
+  await expect(canvas.getByRole("button", { name: /Last action failed/ })).toBeVisible();
 });
