@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import * as React from "react";
 import { GithubLinkButton } from "~/components/ui/github-link-button";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
-import { DevPanelContainer, DevPanelFallback, TicketsTableSection } from "~/features/tickets/components";
+import { DevPanel, DevPanelFallback, TicketsTableSection } from "~/features/tickets/components";
 import { SelectionProvider } from "~/features/tickets/hooks/use-selection";
 import { parseTableQuery } from "~/features/tickets/schemas";
 import { getTeammates, getTicketsPage } from "~/features/tickets/server";
@@ -66,7 +66,7 @@ export default async function TicketsPage({ searchParams }: PageProps<"/">) {
           </div>
 
           <React.Suspense fallback={<DevPanelFallback />}>
-            <DevPanelContainer />
+            <DevPanel />
           </React.Suspense>
         </div>
 

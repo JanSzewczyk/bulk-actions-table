@@ -156,11 +156,7 @@ export function TicketsTable({ tickets, sort, direction, isPending, onSortChange
                   <Badge variant={STATUS_BADGE_VARIANT[ticket.status]}>{STATUS_LABELS[ticket.status]}</Badge>
                 </TableCell>
                 <TableCell>
-                  {assignee === null ? (
-                    <span className="text-muted-foreground">—</span>
-                  ) : (
-                    <TeammateItem teammate={assignee} />
-                  )}
+                  <TeammateItem teammate={assignee} />
                 </TableCell>
                 <TableCell className="whitespace-nowrap text-muted-foreground">
                   {formatTicketDate(ticket.createdAt)}

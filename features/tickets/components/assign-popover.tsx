@@ -10,8 +10,8 @@ import {
   DropdownMenuTrigger
 } from "@szum-tech/design-system/components/dropdown-menu";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@szum-tech/design-system/components/input-group";
-import { Item, ItemActions, ItemContent, ItemMedia, ItemTitle } from "@szum-tech/design-system/components/item";
-import { SearchIcon, UserIcon, UserPlusIcon } from "lucide-react";
+import { ItemActions } from "@szum-tech/design-system/components/item";
+import { SearchIcon, UserPlusIcon } from "lucide-react";
 import * as React from "react";
 import { CURRENT_USER_ID } from "~/features/tickets/constants";
 import type { Teammate } from "~/features/tickets/types/teammate";
@@ -24,14 +24,22 @@ type AssignPopoverProps = {
   onUnassign(): void;
 };
 
+/** First name (first whitespace-separated token) — `name` has no separate first/last name field. */
+function firstName(name: string): string {
+  return name.split(" ")[0] ?? name;
+}
+
 /**
- * "Assign to…" picker for the bulk toolbar. Teammate list comes from server data; search filters
- * client-side. "Unassigned" is a static entry (not a real teammate) that clears the assignment
- * instead of setting one — it always stays above the scrollable, searchable list.
+ * "Assign to…" picker for the bulk toolbar. Teammate list comes from server data, sorted by first
+ * name; search filters client-side. "Unassigned" is a static entry (not a real teammate) that clears
+ * the assignment instead of setting one — it always stays above the scrollable, searchable list.
  */
 export function AssignPopover({ teammates, disabled, onAssign, onUnassign }: AssignPopoverProps) {
   const [search, setSearch] = React.useState("");
-  const filtered = teammates.filter((teammate) => teammate.name.toLowerCase().includes(search.toLowerCase()));
+  const sorted = teammates.toSorted(
+    (a, b) => firstName(a.name).localeCompare(firstName(b.name)) || a.name.localeCompare(b.name)
+  );
+  const filtered = sorted.filter((teammate) => teammate.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <DropdownMenu>
@@ -56,16 +64,7 @@ export function AssignPopover({ teammates, disabled, onAssign, onUnassign }: Ass
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="h-auto" onClick={onUnassign}>
-          <Item className="w-full p-0" size="sm">
-            <ItemMedia variant="image">
-              <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                <UserIcon className="size-5" />
-              </span>
-            </ItemMedia>
-            <ItemContent>
-              <ItemTitle>Unassigned</ItemTitle>
-            </ItemContent>
-          </Item>
+          <TeammateItem teammate={null} />
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <div className="max-h-72 overflow-y-auto">
