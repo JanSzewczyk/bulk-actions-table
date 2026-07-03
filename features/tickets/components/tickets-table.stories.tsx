@@ -82,8 +82,9 @@ Default.test("Renders a row per ticket with status and assignee", async ({ canva
     await expect(canvas.getByText("Resolved")).toBeVisible();
   });
 
-  await step("Unassigned ticket shows a dash", async () => {
-    await expect(canvas.getByText("—")).toBeVisible();
+  await step("Unassigned ticket shows the unassigned placeholder", async () => {
+    await expect(canvas.getByText("Unassigned")).toBeVisible();
+    await expect(canvas.getByText("No assignee")).toBeVisible();
   });
 
   await step("Assigned tickets show the teammate's name", async () => {

@@ -8,7 +8,7 @@ import { TicketStatus } from "~/features/tickets/types/ticket";
 import { SelectionBanner } from "./selection-banner";
 import { TicketsTable } from "./tickets-table";
 
-const NO_FILTER: TableFilter = { q: null, status: null };
+const NO_FILTER: TableFilter = { assigneeIds: null, q: null, status: null };
 
 function makeTickets(prefix: string): Array<TicketListItem> {
   return [1, 2, 3].map((n) => ({

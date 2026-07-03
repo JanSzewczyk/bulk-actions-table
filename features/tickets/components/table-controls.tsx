@@ -8,14 +8,17 @@ import { Spinner } from "@szum-tech/design-system/components/spinner";
 import { SearchIcon, XIcon } from "lucide-react";
 import * as React from "react";
 import type { TableQuery } from "~/features/tickets/types/table-query";
+import type { Teammate } from "~/features/tickets/types/teammate";
 import { type TicketStatus, TicketStatuses } from "~/features/tickets/types/ticket";
 import { STATUS_LABELS } from "~/features/tickets/utils/ticket-presentation";
+import { TeammatesFilter } from "./teammates-filter";
 
 const ALL_STATUSES = "ALL";
 const SEARCH_DEBOUNCE_MS = 350;
 
 type TableControlsProps = {
   query: TableQuery;
+  teammates: Array<Teammate>;
   isPending: boolean;
   onQueryChange(patch: Partial<TableQuery>): void;
 };
@@ -25,7 +28,7 @@ type TableControlsProps = {
  * box debounces so typing does not fire a navigation per keystroke. The input is locally controlled
  * but re-syncs whenever the committed query (`query.q`) changes underneath it.
  */
-export function TableControls({ query, isPending, onQueryChange }: TableControlsProps) {
+export function TableControls({ query, teammates, isPending, onQueryChange }: TableControlsProps) {
   const [search, setSearch] = React.useState(query.q ?? "");
 
   // Re-sync when the URL changes from elsewhere (back/forward, clear).
@@ -76,6 +79,13 @@ export function TableControls({ query, isPending, onQueryChange }: TableControls
           </SelectContent>
         </Select>
       </Field>
+
+      <TeammatesFilter
+        disabled={isPending}
+        onValueChange={(assigneeIds) => onQueryChange({ assigneeIds: assigneeIds.length > 0 ? assigneeIds : null })}
+        teammates={teammates}
+        value={query.assigneeIds ?? []}
+      />
     </div>
   );
 }

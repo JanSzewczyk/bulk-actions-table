@@ -26,3 +26,10 @@ export const ACTIVE_JOB_STORAGE_KEY = "tickets:active-job";
 
 /** Fixed id of the static teammate representing the current user — never part of the seeded/generated range. */
 export const CURRENT_USER_ID = "me";
+
+/**
+ * Sentinel id for "no assignee" in the assignee filter's value — combines freely with real teammate
+ * ids (OR semantics: "assigned to A, B, or nobody"). Shared between the client filter component and
+ * the server-side matcher, so it lives here rather than in a client-only component file.
+ */
+export const UNASSIGNED_TEAMMATE_ID = "unassigned";

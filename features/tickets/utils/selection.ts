@@ -43,8 +43,19 @@ function withRemoved(set: ReadonlySet<string>, ids: ReadonlyArray<string>): Set<
   return next;
 }
 
+function assigneeIdsEqual(a: Array<string> | null, b: Array<string> | null): boolean {
+  if (a === null || b === null) {
+    return a === b;
+  }
+  if (a.length !== b.length) {
+    return false;
+  }
+  const bSet = new Set(b);
+  return a.every((id) => bSet.has(id));
+}
+
 function filtersEqual(a: TableFilter, b: TableFilter): boolean {
-  return a.status === b.status && a.q === b.q;
+  return a.status === b.status && a.q === b.q && assigneeIdsEqual(a.assigneeIds, b.assigneeIds);
 }
 
 // --- Operations -----------------------------------------------------------------------------------

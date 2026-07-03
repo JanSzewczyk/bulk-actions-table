@@ -20,8 +20,8 @@ import {
   toggleRow
 } from "./selection";
 
-const NO_FILTER: TableFilter = { q: null, status: null };
-const OPEN_FILTER: TableFilter = { q: null, status: TicketStatus.OPEN };
+const NO_FILTER: TableFilter = { assigneeIds: null, q: null, status: null };
+const OPEN_FILTER: TableFilter = { assigneeIds: null, q: null, status: TicketStatus.OPEN };
 
 function include(...ids: Array<string>): Extract<SelectionState, { mode: typeof SelectionMode.INCLUDE }> {
   return { ids: new Set(ids), mode: SelectionMode.INCLUDE };
@@ -124,6 +124,19 @@ describe("applyFilterChange", () => {
   test("leaves an include selection untouched across filter changes", () => {
     const state = include("t1", "t2");
     expect(applyFilterChange(state, OPEN_FILTER)).toBe(state);
+  });
+
+  test("resets an all selection when only the assignee filter changes", () => {
+    const withAssignee: TableFilter = { assigneeIds: ["u1"], q: null, status: null };
+    const next = applyFilterChange(all(NO_FILTER, "t1"), withAssignee);
+    expect(next).toBe(EMPTY_SELECTION);
+  });
+
+  test("keeps an all selection when the assignee filter is the same set in a different order", () => {
+    const filterA: TableFilter = { assigneeIds: ["u1", "u2"], q: null, status: null };
+    const filterB: TableFilter = { assigneeIds: ["u2", "u1"], q: null, status: null };
+    const state = all(filterA, "t1");
+    expect(applyFilterChange(state, filterB)).toBe(state);
   });
 });
 

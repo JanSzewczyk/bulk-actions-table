@@ -88,7 +88,7 @@ export function TicketsTableSection({
   // Cleared per id as soon as a later attempt (retry/undo) succeeds on it.
   const [failedIds, setFailedIds] = React.useState<ReadonlyMap<string, FailureReason>>(new Map());
 
-  const filter: TableFilter = { q: query.q, status: query.status };
+  const filter: TableFilter = { assigneeIds: query.assigneeIds, q: query.q, status: query.status };
   const pageIds = tickets.map((ticket) => ticket.id);
 
   /** Only the visible page can show per-row pending — `mode: 'all'` never materializes every id. */
@@ -254,7 +254,7 @@ export function TicketsTableSection({
 
   return (
     <div className="flex flex-col gap-4">
-      <TableControls isPending={isPending} onQueryChange={applyQuery} query={query} />
+      <TableControls isPending={isPending} onQueryChange={applyQuery} query={query} teammates={teammates} />
       {jobProgress && activeJob ? <JobProgressBar action={activeJob.action} progress={jobProgress} /> : null}
       <BulkToolbar
         filter={filter}

@@ -30,6 +30,9 @@ export function stringifyTableQuery(query: TableQuery): string {
   if (query.q !== null) {
     params.set("q", query.q);
   }
+  if (query.assigneeIds !== null && query.assigneeIds.length > 0) {
+    params.set("assigneeIds", query.assigneeIds.join(","));
+  }
 
   return params.toString();
 }

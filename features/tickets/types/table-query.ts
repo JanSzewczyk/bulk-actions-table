@@ -24,6 +24,8 @@ export type TicketSortField = (typeof TicketSortField)[keyof typeof TicketSortFi
 export type TableFilter = {
   status: TicketStatus | null;
   q: string | null;
+  /** Teammate ids to match, plus `UNASSIGNED_TEAMMATE_ID` for "no assignee" — `null` means no filter. */
+  assigneeIds: Array<string> | null;
 };
 
 export type TableQuery = TableFilter & {

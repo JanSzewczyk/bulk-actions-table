@@ -18,6 +18,8 @@ export async function getTicketsPage(query: TableQuery): Promise<ServiceResult<T
   if (query.direction !== null) params.set("direction", query.direction);
   if (query.status !== null) params.set("status", query.status);
   if (query.q !== null) params.set("q", query.q);
+  if (query.assigneeIds !== null && query.assigneeIds.length > 0)
+    params.set("assigneeIds", query.assigneeIds.join(","));
 
   return apiFetch<TicketsPage>(`/api/tickets?${params.toString()}`, "Tickets");
 }
