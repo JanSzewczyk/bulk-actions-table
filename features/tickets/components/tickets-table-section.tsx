@@ -3,6 +3,7 @@
 import { toast } from "@szum-tech/design-system/components/toaster";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
+import { TableControls } from "~/features/tickets/components/tickets-table-controls/table-controls";
 import { UNDO_WINDOW_MS } from "~/features/tickets/constants";
 import { useSelection, useSelectionFilterSync } from "~/features/tickets/context/selection.context";
 import { type ActiveJob, useActiveJob } from "~/features/tickets/hooks/use-active-job";
@@ -40,7 +41,6 @@ import type { ActionResponse } from "~/lib/action-types";
 import { BulkToolbar } from "./bulk-toolbar";
 import { JobProgressBar } from "./job-progress-bar";
 import { SelectionBanner } from "./selection-banner";
-import { TableControls } from "./table-controls";
 import { TablePagination } from "./table-pagination";
 import { TicketsTable } from "./tickets-table";
 
