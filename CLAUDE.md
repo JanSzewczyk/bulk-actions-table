@@ -120,9 +120,30 @@ Features follow a modular architecture pattern:
 features/
 └── example-feature/
     ├── components/    # Feature-specific components
-    ├── schemas/       # Zod validation schemas
-    └── server/        # Server-side logic (actions, data fetching)
+    ├── constants/      # Feature-scoped constants (client-safe)
+    ├── hooks/          # Client hooks (selection state, job polling, etc.)
+    ├── lib/            # Pure client-safe logic (e.g. a reducer)
+    ├── schemas/        # Zod validation schemas
+    ├── server/
+    │   ├── actions/    # Server actions — call server/api only, never db/services directly
+    │   ├── api/        # Fetch client for this feature's own route handlers → ServiceResult<T> tuples
+    │   ├── db/         # Storage layer (in-memory `globalThis` store, or a real DB)
+    │   └── services/   # Business logic behind the route handlers; only route handlers import this
+    ├── test/builders/  # mimicry-js + faker test data builders
+    └── types/          # Shared types safe for both server and client
 ```
+
+The browser never calls the feature's own API routes directly — reads go `RSC → server/api (fetch) → route handler
+→ service → db`, and mutations go `client → server action → server/api (fetch) → route handler → service → db`.
+Actions/pages only ever import `server/api`; route handlers only ever import `services`.
+
+### Tickets Feature (Bulk Actions Table)
+
+`features/tickets/` is the concrete example of the structure above — a ~8,000-row ticket table with a hybrid
+selection model (`include` ids-set ⇄ `all` filter+excluded, in `lib/selection.ts`, unit-tested), three bulk actions
+with partial-failure retry, and a sync/async-job execution split (`BULK_ASYNC_THRESHOLD` in `data/env/server.ts`,
+default 50). See the README's dedicated sections (Selection Model, API Contract, Partial Failure) for the full
+contract — this file only tracks pitfalls specific to building on it.
 
 ### Environment Variables
 
@@ -194,11 +215,15 @@ The app uses `next-themes` for dark/light/system theme switching:
 
 ## Common Pitfalls
 
-| Area            | Don't                                                  | Do                                                  |
-| --------------- | ------------------------------------------------------ | --------------------------------------------------- |
-| Components      | Add `'use client'` unnecessarily                       | Default to Server Components                        |
-| Memoization     | Use `useMemo`/`useCallback`/`memo` with React Compiler | Let compiler optimize automatically                 |
-| Imports         | Use relative paths (`../../../lib/utils`)              | Use path aliases (`~/lib/utils`)                    |
-| Logging         | Use `console.log` in production code                   | Use structured Pino logging (`logger.info(...)`)    |
-| `useFormStatus` | Use in same component as `<form>`                      | Use in a child component inside the form            |
-| Server Actions  | Return untyped objects                                 | Use standardized response types with Zod validation |
+| Area                  | Don't                                                                                     | Do                                                                                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Components            | Add `'use client'` unnecessarily                                                          | Default to Server Components                                                                              |
+| Memoization           | Use `useMemo`/`useCallback`/`memo` with React Compiler                                    | Let compiler optimize automatically                                                                        |
+| Imports               | Use relative paths (`../../../lib/utils`)                                                 | Use path aliases (`~/lib/utils`)                                                                            |
+| Logging               | Use `console.log` in production code                                                       | Use structured Pino logging (`logger.info(...)`)                                                            |
+| `useFormStatus`       | Use in same component as `<form>`                                                          | Use in a child component inside the form                                                                    |
+| Server Actions        | Return untyped objects                                                                     | Use standardized response types with Zod validation                                                         |
+| Failure simulation    | Derive a failure roll from the same seeded PRNG as latency (`hash(seed,id)`)                | Keep latency deterministic but roll failure with a fresh, unseeded `Math.random()` per attempt — otherwise a failed item can never succeed on retry |
+| Secondary/dev tools   | Fetch a side panel's data inside the page's main `loadData()`                              | Give it its own async Server Component behind a `<Suspense>` boundary so it can't block the critical path   |
+| `sessionStorage`      | Read it in a `useState` initializer                                                        | Read it in a mount `useEffect` — the initializer runs during SSR, where `sessionStorage` doesn't exist       |
+| DS `asChild` (Radix Slot) | Pass an anchor/element created by a Server Component as `children` into a Client Component's `asChild` Button | Build the whole `asChild` composition (Button + its child element) inside one Client Component — otherwise the Slot prop-merge can differ between SSR and hydration and throw a mismatch |

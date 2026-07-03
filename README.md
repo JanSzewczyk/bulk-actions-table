@@ -5,19 +5,186 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/JanSzewczyk/bulk-actions-table/actions/workflows/pr-check.yml/badge.svg)](https://github.com/JanSzewczyk/bulk-actions-table/actions/workflows/pr-check.yml)
 
-**A Next.js application for performing bulk actions on tabular data**
+**A ticket table with bulk actions (Archive / Assign / Delete), a hybrid selection model, and sync→async escalation
+for large batches**
 
-[Features](#-features) • [Getting Started](#-getting-started) • [Documentation](#-table-of-contents) •
-[Deployment](#-deployment)
+[Demo Script](#-demo-script) • [Selection Model](#-selection-model) • [API Contract](#-api-contract) •
+[Getting Started](#-getting-started)
 
 </div>
 
 ---
 
-## 👋 Hello there!
+## 👋 Overview
 
-This is **Bulk Actions Table**, a Next.js application built with an enterprise-ready foundation. It is packed with
-features that keep the codebase efficient, maintainable, and enjoyable to work in.
+This project implements the "bulk actions on a data table" take-home assignment: a support-ticket table (~8,000
+seeded rows) with row/page/all-matching selection, three bulk actions with partial-failure handling, and a
+sync-for-small/async-job-for-large execution model with live progress and retry. Below is everything the brief
+requires — how to run it, the selection model, the API contract, partial-failure behavior, the AI-assisted decisions
+made along the way, and what's left for "with more time." The rest of the document (further down) covers the
+underlying Next.js/testing/tooling setup.
+
+## 🏁 How to Run
+
+One install, one start:
+
+```bash
+npm ci
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000). The ~8,000-ticket dataset is generated deterministically from a
+fixed seed on first run, so it's identical across restarts — no database or seed script needed.
+
+### Demo script
+
+Five steps to see the whole feature set in one pass. The dataset itself is reproducible (fixed seed, same ~8,000
+tickets every restart); the dev panel's default failure rate is non-zero so a large batch reliably produces a few
+failures for step 5 to retry — raise it from the Dev panel if you want more (or need a *guaranteed* partial failure
+on a small selection):
+
+1. Click the header checkbox to **select the current page** (25 rows). The toolbar appears with a live count.
+2. Click **"Select all 8,000 matching"** to escalate the selection to everything matching the current filter, not
+   just the loaded page.
+3. Click **Delete** — since the count crosses the async threshold, a confirmation dialog appears first (delete is
+   always confirmed; any `all`-mode action is confirmed regardless of type). Confirm it.
+4. Watch the **progress bar** track the background job (`Running in background… X / 8,000 · Y failed`) — it updates
+   roughly every second via polling. Refreshing the page mid-job resumes tracking the same job instead of losing it.
+5. When it finishes, the completion toast shows a **"Retry failed (N)"** action. Click it — the failed subset is
+   resubmitted, and because the simulated failure is a true independent probability per attempt (not seeded to the
+   item), a previously-failed ticket can succeed on retry.
+
+Open the **Dev panel** (⚙️ button, top-right of the page title) to tune the simulated failure rate, latency seed, and
+worker concurrency live, without restarting the server — useful for forcing more/fewer partial failures than the
+demo script's default.
+
+## 🧩 Selection Model
+
+Row selection is a hybrid of two representations, not a single `Set<id>`:
+
+- **`include`** — an explicit set of picked ids. This is what a plain checkbox list needs, and it's what "select all
+  matching" escalates *away* from once the user asks for more than the loaded pages.
+- **`all` + `excluded`** — "everything matching the current filter, except these ids." This is the only way to
+  represent "select all 8,000 matching" without materializing 8,000 ids client-side, and it's what lets a bulk
+  request scale independently of how many rows are visible.
+
+A plain `Set<id>` can't represent "all matching, minus a few" without enumerating every id; a page-scoped selection
+can't answer "select all matching" at all. The reducer (`features/tickets/lib/selection.ts`) is pure and framework-free
+— a `useReducer` + Context wraps it (`use-selection.ts`) so the selection survives `router.refresh()` and filter/page
+navigation without being tied to the query cache.
+
+Behavior across navigation:
+
+| Event                     | `include` mode                          | `all` mode                                    |
+| -------------------------- | ---------------------------------------- | ---------------------------------------------- |
+| Change page / sort         | Selection untouched (ids persist)        | Selection untouched (scoped to the filter, not the page) |
+| Change filter (search/status) | Selection untouched — a toast reports how many picked ids now fall "outside the current filter" | Resets to empty — an `all` selection is only meaningful for the filter it was made under |
+| Toggle a row               | Add/remove from the id set                | Add/remove from `excluded`                     |
+
+## 📡 API Contract
+
+Single endpoint for every bulk action, regardless of size:
+
+```
+POST /api/tickets/bulk
+Idempotency-Key: <uuid>   ← required; a retried submit with the same key returns the original outcome
+
+{ "action": "archive" | "assign" | "unassign" | "delete" | "restore",
+  "assigneeId"?: string,               // required when action = "assign"
+  "mode": "include", "ids": string[] } |
+  "mode": "all", "filter": { q, status }, "excluded": string[] }
+```
+
+Two response shapes, chosen by the server, not the caller:
+
+- **`200 { succeeded: string[], failed: { id, reason }[] }`** — executed synchronously. Used when `mode: "include"`
+  and the id count is below `BULK_ASYNC_THRESHOLD` (default 50).
+- **`202 { jobId, status, total }`** — escalated to a background job. Used when `mode: "all"` (size isn't known
+  precisely until execution) or the id count meets/exceeds the threshold. Progress is polled via
+  `GET /api/jobs/:id` (counters only — `status/total/processed/succeeded/failedCount`, never the failure list itself,
+  so a large batch with a high failure rate can't flood the polling client), and the full failed-item list is
+  fetched separately and paginated from `GET /api/jobs/:id/failures`.
+
+**The contract is identical whether 200 or 200,000 records are targeted — only the execution mode changes (sync vs.
+job).** The production path for this would swap the in-memory `globalThis` store for a persistent store plus a real
+queue/worker; the front end wouldn't change at all. The explicit limitation of the current mock: it's a single
+Node process (`globalThis` Map), so it doesn't survive a restart or scale across serverless instances — by design,
+since a durable store is out of scope for this assignment.
+
+## ⚠️ Partial Failure
+
+A bulk request can partially fail (some ids succeed, some hit a simulated per-item conflict). Rather than a special
+"retry" UI, **the selection model itself is the retry mechanism**: succeeded ids are removed from the selection,
+failed ids stay selected with an error marker, and a "Retry (N)" action re-submits exactly that failed subset as a
+new bulk request. One mechanism handles first-attempt partial failure, manual retry, and even undo-after-delete
+(`restore` on the ids that actually got deleted) — no separate code path for any of them.
+
+One nuance: **delete's undo can itself fail.** The undo toast calls the same bulk pipeline with `action: "restore"`
+on the deleted ids, which inherits the exact same partial-failure handling — a restore that partially fails leaves
+the still-deleted ids selected with their own retry action, rather than silently losing them.
+
+## 🤖 AI Moments
+
+At least two decisions where AI-assisted output was deliberately overridden:
+
+1. **SSE → polling for job progress.** AI-assisted research produced a complete SSE design for streaming job
+   progress (coalesced emission on a timer, compact payload). I rejected it in favor of ~1s polling: at that update
+   cadence the two are UX-indistinguishable, and polling has natural backpressure — the client decides when to ask,
+   so it can't be flooded. Naive per-item SSE (the initial AI proposal) would emit tens of thousands of events/sec at
+   this dataset size, each triggering a `setState` — the progress bar meant to improve UX would instead freeze the
+   tab. SSE only makes sense with the same coalescing complexity polling already gets for free.
+2. **All-async → threshold escalation.** AI defaulted every bulk operation into an async job. I introduced a
+   threshold (`BULK_ASYNC_THRESHOLD`, default 50): small operations shouldn't pay job ceremony (an extra round-trip,
+   polling, a progress bar for half a second), and large ones can't be synchronous (timeout risk, no feedback while
+   waiting). The threshold is a configurable env var, directly answering the brief's question about how the API
+   contract should shape execution.
+3. **Silent selection-reset on filter change → explicit counter.** AI's default suggestion was to clear the
+   selection on every filter change as the "safest" option. For an explicit-id selection, that's hostile to a user
+   who manually gathered rows across several pages — instead the selection survives, and the toolbar/confirm dialog
+   explicitly show "N outside the current filter." The reset is kept only for `all` mode, where it's semantically
+   required (the selection is defined *by* the filter).
+4. **TanStack Query → server-first data flow.** AI research recommended TanStack Query with SSR hydration. Since
+   table state already lives in the URL, RSC + `useTransition` + `router.refresh()` gives the same practical
+   benefits (framework-level caching, a pending state equivalent to `keepPreviousData`, revalidation-after-mutation)
+   without a second source of truth for the data. The one real thing given up — prefetching the next page — is
+   listed under "with more time" below.
+
+## 🔭 With More Time
+
+- **TanStack Query for next-page prefetch and background revalidation** — the one concrete thing given up by the
+  server-first approach above.
+- **Virtualize the table body** for larger page sizes (100+ rows) — currently fine at the default page sizes, but
+  would matter if page size grew significantly.
+- **Optimistic updates for single, easily-reversible actions** (e.g. archive on one row) with rollback — not applied
+  broadly, since the API fails randomly and partially, and rolling back a chunk of a 25-row bulk request after the
+  fact reads as a bug, not a feature.
+- **E2E test of the full escalation flow** (Playwright) covering select → escalate → async job → partial failure →
+  retry, end to end against a running server.
+- **A real queue (e.g. BullMQ) behind the same `POST /api/tickets/bulk` contract** — the contract was designed so
+  this swap wouldn't require any front-end change.
+
+## 🧪 Tests
+
+The single piece of logic under test is the selection reducer
+(`features/tickets/lib/selection.test.ts`) — it's the only logic in this project where a bug is both silent and
+destructive (a bulk action running against the wrong set of ids), and the brief itself points at this exact spot
+("test the selection logic across pagination"). Cases covered:
+
+- Toggling a row in `include` mode (add/remove) and in `all` mode (moves in/out of `excluded`); reducer never
+  mutates its input state.
+- Selecting/deselecting an entire page, in both `include` and `all` mode.
+- Escalating to `all` mode (discards a prior `include` selection, binds to the current filter with no exclusions).
+- Filter changes: resets an `all` selection scoped to a different filter, leaves it untouched when the filter is
+  unchanged, and never touches an `include` selection.
+- `selectionCount` / `countOutsideFilter` for both modes, including the "never negative" edge case in `all` mode.
+- Header checkbox tri-state (`pageCheckboxState`): unchecked / checked / indeterminate / empty-page, including
+  `all`-mode exclusions.
+- A full end-to-end flow: select page → escalate to all → deselect one → clear.
+
+---
+
+This is **Bulk Actions Table**, built on an enterprise-ready Next.js foundation. The rest of this document covers
+the underlying tooling and conventions.
 
 ## ✨ Features
 
@@ -76,13 +243,19 @@ features that keep the codebase efficient, maintainable, and enjoyable to work i
 
 ### 🏆 Performance
 
-- **💯 Perfect Lighthouse Score** — Optimized for performance, accessibility, and SEO
 - **⚡ React Compiler** — Automatic memoization without `useMemo`/`useCallback`/`memo` boilerplate
 
 ---
 
 ## 📖 Table of Contents
 
+- [🏁 How to Run](#-how-to-run)
+- [🧩 Selection Model](#-selection-model)
+- [📡 API Contract](#-api-contract)
+- [⚠️ Partial Failure](#️-partial-failure)
+- [🤖 AI Moments](#-ai-moments)
+- [🔭 With More Time](#-with-more-time)
+- [🧪 Tests](#-tests)
 - [✨ Features](#-features)
 - [🎯 Getting Started](#-getting-started)
 - [🚀 Deployment](#-deployment)
@@ -399,7 +572,7 @@ import logger, { createLogger } from "~/lib/logger";
 // Basic logging
 logger.info("User logged in successfully");
 logger.warn("API rate limit approaching");
-logger.error({ userId: "123", error: err }, "Failed to fetch user data");
+logger.error({ userId: "123", err }, "Failed to fetch user data");
 
 // Context logger — persists context in every log line
 const apiLogger = createLogger({ module: "api", service: "user-service" });
@@ -420,25 +593,30 @@ Available levels (highest to lowest priority): `fatal` | `error` | `warn` | `inf
 
 The template automatically logs in these areas:
 
-- **Request middleware** (`proxy.ts`) — every HTTP request logs method, URL, user agent, status, and duration
-- **Health check API** (`app/api/health/route.ts`) — logs each health probe
+- **Request middleware** (`proxy.ts`) — every HTTP request logs a `requestId`, method, URL, and user agent on entry.
+  Middleware runs *before* the route handler, so it can't observe the real response — status/duration are logged by
+  the route handler itself, not the middleware.
+- **Health check API** (`app/api/health/route.ts`) — logs each health probe at `debug` (hit every few seconds by
+  container/uptime probes — `info` would drown real logs in noise)
 - **Error boundaries** (`app/error.tsx`, `app/global-error.tsx`) — logs caught errors with full stack traces
 
 ### Production Best Practices
 
 ```typescript
 // Include context objects for searchability
-logger.error({ userId, orderId, error }, "Order processing failed");
+logger.error({ userId, orderId, err }, "Order processing failed");
 
 // Never log sensitive data
 logger.info({ userId: user.id }, "User login"); // ✅
 logger.info({ password: user.password }, "User login"); // ❌
 
-// Always pass error objects for full stack traces
+// Pass Error objects under the `err` key, not `error` — Pino's default serializer only recognizes
+// `err` and expands it to { type, message, stack }. Any other key holding a raw Error serializes to `{}`.
 try {
   // ...
-} catch (error) {
-  logger.error({ error }, "Operation failed");
+} catch (err) {
+  logger.error({ err }, "Operation failed"); // ✅
+  logger.error({ error: err }, "Operation failed"); // ❌ — logs `"error":{}`
 }
 ```
 

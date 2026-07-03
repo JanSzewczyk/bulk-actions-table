@@ -5,7 +5,7 @@ import { getBaseUrl } from "~/lib/api/http-client";
 import { createLogger } from "~/lib/logger";
 import { categorizeServiceError, type ServiceResult, serviceErrorFromStatus } from "~/lib/services/errors";
 
-const logger = createLogger({ module: "api-client" });
+const logger = createLogger({ module: "api-client-bulk" });
 
 /**
  * Posts a bulk action to `POST /api/tickets/bulk`. Kept separate from the generic `apiFetch` because

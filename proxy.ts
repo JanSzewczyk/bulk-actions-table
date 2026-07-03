@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import logger from "~/lib/logger";
 
 export function proxy(request: NextRequest) {
-  const startTime = Date.now();
   const requestId = crypto.randomUUID();
 
   // Create a logger with request context
@@ -15,21 +14,11 @@ export function proxy(request: NextRequest) {
 
   requestLogger.info("Incoming request");
 
-  // Continue with the request
+  // Continue with the request. `NextResponse.next()` is a pass-through signal, not the eventual
+  // response — middleware runs before the route handler/page, so it can't see the real status code
+  // or measure real request duration. Route handlers log their own outcome instead.
   const response = NextResponse.next();
-
-  // Add request ID to response headers
   response.headers.set("X-Request-ID", requestId);
-
-  // Log the response
-  const duration = Date.now() - startTime;
-  requestLogger.info(
-    {
-      duration,
-      status: response.status
-    },
-    "Request completed"
-  );
 
   return response;
 }

@@ -9,7 +9,6 @@ export async function runPool<T, R>(
   concurrency: number,
   worker: (item: T, index: number) => Promise<R>
 ): Promise<Array<R>> {
-  console.log(items, concurrency);
   const results: Array<R> = new Array(items.length);
   const queue = items.map((item, index) => ({ index, item }));
 

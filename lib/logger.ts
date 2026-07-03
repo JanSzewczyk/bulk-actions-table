@@ -1,4 +1,5 @@
 import pino from "pino";
+import { env } from "~/data/env/server";
 
 /**
  * Logger configuration for the application
@@ -10,10 +11,13 @@ const logger = pino({
       return { level: label.toUpperCase() };
     }
   },
-  level: process.env.LOG_LEVEL || "info",
+  // `env.LOG_LEVEL` is the validated source, but `SKIP_ENV_VALIDATION` (set for tests and Docker
+  // builds) makes T3 Env skip its Zod defaults and pass raw `process.env` through untouched — so this
+  // falls back to the schema's own default instead of handing Pino an `undefined` level.
+  level: env.LOG_LEVEL || "info",
   timestamp: pino.stdTimeFunctions.isoTime,
   transport:
-    process.env.NODE_ENV === "development"
+    env.NODE_ENV === "development"
       ? {
           options: {
             colorize: true,

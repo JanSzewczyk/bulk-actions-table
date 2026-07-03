@@ -5,7 +5,7 @@ import { getBaseUrl } from "~/lib/api/http-client";
 import { createLogger } from "~/lib/logger";
 import { categorizeServiceError, type ServiceResult, serviceErrorFromStatus } from "~/lib/services/errors";
 
-const logger = createLogger({ module: "api-client" });
+const logger = createLogger({ module: "api-client-simulation" });
 
 /** Updates the server-side simulation knobs via `PATCH /api/dev/simulation`. */
 export async function updateSimulationParams(params: SimulationParams): Promise<ServiceResult<SimulationParams>> {

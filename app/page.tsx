@@ -1,8 +1,7 @@
-import { Button } from "@szum-tech/design-system/components/button";
 import { Header } from "@szum-tech/design-system/components/header";
 import type { Metadata } from "next";
 import * as React from "react";
-import { GithubIcon } from "~/components/ui/icons/github";
+import { GithubLinkButton } from "~/components/ui/github-link-button";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
 import { DevPanelContainer, DevPanelFallback, TicketsTableSection } from "~/features/tickets/components";
 import { SelectionProvider } from "~/features/tickets/hooks/use-selection";
@@ -54,16 +53,7 @@ export default async function TicketsPage({ searchParams }: PageProps<"/">) {
           <span className="font-semibold text-body-sm">Bulk Actions Table</span>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Button asChild endIcon={<GithubIcon />} size="sm" variant="outline">
-              <a
-                aria-label="View GitHub repository (opens in new tab)"
-                href="https://github.com/JanSzewczyk/bulk-actions-table"
-                rel="noreferrer"
-                target="_blank"
-              >
-                GitHub
-              </a>
-            </Button>
+            <GithubLinkButton />
           </div>
         </div>
       </Header>

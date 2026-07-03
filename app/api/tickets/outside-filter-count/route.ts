@@ -18,6 +18,7 @@ export async function POST(request: Request) {
   try {
     body = parseOutsideFilterCountRequest(await request.json());
   } catch {
+    logger.warn("Rejected invalid outside-filter-count payload");
     return NextResponse.json({ error: "Invalid request payload" }, { status: 400 });
   }
 

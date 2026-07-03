@@ -1,9 +1,12 @@
 import "server-only";
 
-import { finalizeJob, recordJobFailure, recordJobSuccess } from "~/features/tickets/server/db";
+import { finalizeJob, getJobById, recordJobFailure, recordJobSuccess } from "~/features/tickets/server/db";
 import type { BulkAction, SimulationParams } from "~/features/tickets/types/bulk";
+import { createLogger } from "~/lib/logger";
 import { processBulkItem } from "./process-bulk-item";
 import { runPool } from "./throttle";
+
+const logger = createLogger({ module: "tickets-job-runner" });
 
 /**
  * Background async-job processing — fire-and-forget from `bulk-service.ts`. Reuses the exact same
@@ -28,4 +31,10 @@ export async function runJob(
   });
 
   finalizeJob(jobId);
+
+  const job = getJobById(jobId);
+  logger.info(
+    { action, failedCount: job?.failedCount, jobId, succeeded: job?.succeeded, total: job?.total },
+    "Job completed"
+  );
 }

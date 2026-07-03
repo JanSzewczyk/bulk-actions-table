@@ -45,6 +45,9 @@ export function BulkToolbar({
 }: BulkToolbarProps) {
   const { selection, dispatch } = useSelection();
   const [pendingAction, setPendingAction] = React.useState<PendingConfirmation | null>(null);
+  // Whatever's focused when a confirmation opens (the Archive/Delete button, or the assign-popover
+  // item) — restored on close via ConfirmDialog's `onCloseAutoFocus` (see there for why).
+  const lastTriggerRef = React.useRef<HTMLElement | null>(null);
 
   if (!hasSelection(selection)) {
     return null;
@@ -66,9 +69,14 @@ export function BulkToolbar({
     };
   }
 
+  function openConfirmation(pending: PendingConfirmation) {
+    lastTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setPendingAction(pending);
+  }
+
   function requestArchive() {
     if (selection.mode === SelectionMode.ALL) {
-      setPendingAction({ action: BulkAction.ARCHIVE });
+      openConfirmation({ action: BulkAction.ARCHIVE });
       return;
     }
     onSubmit(buildRequest(BulkAction.ARCHIVE, undefined));
@@ -76,7 +84,7 @@ export function BulkToolbar({
 
   function requestAssign(teammateId: string) {
     if (selection.mode === SelectionMode.ALL) {
-      setPendingAction({ action: BulkAction.ASSIGN, assigneeId: teammateId });
+      openConfirmation({ action: BulkAction.ASSIGN, assigneeId: teammateId });
       return;
     }
     onSubmit(buildRequest(BulkAction.ASSIGN, teammateId));
@@ -84,14 +92,14 @@ export function BulkToolbar({
 
   function requestUnassign() {
     if (selection.mode === SelectionMode.ALL) {
-      setPendingAction({ action: BulkAction.UNASSIGN });
+      openConfirmation({ action: BulkAction.UNASSIGN });
       return;
     }
     onSubmit(buildRequest(BulkAction.UNASSIGN, undefined));
   }
 
   function requestDelete() {
-    setPendingAction({ action: BulkAction.DELETE });
+    openConfirmation({ action: BulkAction.DELETE });
   }
 
   function confirmPendingAction() {
@@ -147,6 +155,10 @@ export function BulkToolbar({
       <ConfirmDialog
         confirmLabel={isDeleteConfirmation ? "Delete" : "Confirm"}
         description={confirmDescription}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          lastTriggerRef.current?.focus();
+        }}
         onConfirm={confirmPendingAction}
         onOpenChange={closePendingConfirmation}
         open={pendingAction !== null}

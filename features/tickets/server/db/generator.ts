@@ -35,7 +35,7 @@ export function generateDataset({ seed: seedValue, size }: { seed: number; size:
     email: "me@example.com",
     id: CURRENT_USER_ID,
     isAvailable: true,
-    name: "Me"
+    name: "My Name"
   };
 
   teammateBuilder.reset();

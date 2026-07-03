@@ -3,7 +3,7 @@
 import { toast } from "@szum-tech/design-system/components/toaster";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
-import { UNDO_WINDOW_MS } from "~/features/tickets/constants";
+import { ACTIVE_JOB_STORAGE_KEY, UNDO_WINDOW_MS } from "~/features/tickets/constants";
 import { useJobPolling } from "~/features/tickets/hooks/use-job-polling";
 import { useSelection } from "~/features/tickets/hooks/use-selection";
 import { mergeTableQuery, stringifyTableQuery } from "~/features/tickets/lib/table-query-url";
@@ -66,6 +66,18 @@ function buildRestoreRequest(ids: Array<string>): BulkRequest {
   };
 }
 
+function readStoredActiveJob(): ActiveJob | null {
+  const raw = sessionStorage.getItem(ACTIVE_JOB_STORAGE_KEY);
+  if (raw === null) {
+    return null;
+  }
+  try {
+    return JSON.parse(raw) as ActiveJob;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Owns bulk-submission end to end (sync/async branching, partial-failure and undo toasts, job
  * polling) rather than the toolbar, because an active selection — and with it the toolbar — clears
@@ -93,11 +105,22 @@ export function TicketsTableSection({
   const filter: TableFilter = { q: query.q, status: query.status };
   const pageIds = tickets.map((ticket) => ticket.id);
 
+  // Resume polling a job that was still running when the page was refreshed. Read in a mount effect
+  // (never a useState initializer) so this stays SSR-safe — sessionStorage doesn't exist on the server.
+  React.useEffect(() => {
+    const stored = readStoredActiveJob();
+    if (stored) {
+      setActiveJob(stored);
+    }
+  }, []);
+
   function handleOutcome(request: BulkRequest, outcome: BulkActionOutcome) {
     if (outcome.mode === "async") {
       toast.info(`Started a background job for ${formatCount(outcome.total)} tickets.`);
       dispatch({ type: "CLEAR" });
-      setActiveJob({ action: request.action, assigneeId: request.assigneeId, jobId: outcome.jobId });
+      const job: ActiveJob = { action: request.action, assigneeId: request.assigneeId, jobId: outcome.jobId };
+      sessionStorage.setItem(ACTIVE_JOB_STORAGE_KEY, JSON.stringify(job));
+      setActiveJob(job);
       return;
     }
 
@@ -118,7 +141,10 @@ export function TicketsTableSection({
           action: {
             label: `Retry (${failed.length})`,
             onClick: () => submitBulkRequest(buildRetryRequest(request, failedIds))
-          }
+          },
+          // A toast with a retry action needs to outlive sonner's default ~4s — otherwise the one
+          // affordance that matters most on a partial failure disappears before it can be clicked.
+          duration: UNDO_WINDOW_MS
         }
       );
     }
@@ -150,6 +176,7 @@ export function TicketsTableSection({
 
   function handleJobCompleted(finalProgress: JobProgress) {
     const completedJob = activeJob;
+    sessionStorage.removeItem(ACTIVE_JOB_STORAGE_KEY);
     setActiveJob(null);
     router.refresh();
 
@@ -166,7 +193,8 @@ export function TicketsTableSection({
             onClick: () => {
               void retryJobFailures(completedJob);
             }
-          }
+          },
+          duration: UNDO_WINDOW_MS
         }
       );
     } else {
