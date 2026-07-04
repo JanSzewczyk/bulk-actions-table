@@ -6,7 +6,6 @@ import {
   Combobox,
   ComboboxContent,
   ComboboxEmpty,
-  ComboboxInput,
   ComboboxItem,
   ComboboxList,
   ComboboxSeparator,
@@ -124,7 +123,7 @@ export function TeammatesFilter({ teammates, value, disabled, onValueChange }: T
   const teammateById = new Map(sorted.map((teammate) => [teammate.id, teammate]));
   const items = [UNASSIGNED_TEAMMATE_ID, ...sorted.map((teammate) => teammate.id)];
 
-  function itemToStringValue(id: string): string {
+  function itemToStringLabel(id: string): string {
     if (id === UNASSIGNED_TEAMMATE_ID) {
       return "Unassigned no assignee";
     }
@@ -138,7 +137,7 @@ export function TeammatesFilter({ teammates, value, disabled, onValueChange }: T
         autoHighlight
         disabled={disabled}
         items={items}
-        itemToStringValue={itemToStringValue}
+        itemToStringLabel={itemToStringLabel}
         multiple
         onValueChange={onValueChange}
         value={value}
@@ -152,7 +151,7 @@ export function TeammatesFilter({ teammates, value, disabled, onValueChange }: T
         </ComboboxTrigger>
 
         <ComboboxContent className="min-w-(--anchor-width) max-w-(--anchor-width)">
-          <ComboboxInput className="mb-1" placeholder="Search people…" showTrigger={false} />
+          {/*<ComboboxInput className="mb-1" placeholder="Search people…" showTrigger={false} />*/}
           <ComboboxEmpty>No teammates found.</ComboboxEmpty>
           <ComboboxList>
             <ComboboxItem value={UNASSIGNED_TEAMMATE_ID}>

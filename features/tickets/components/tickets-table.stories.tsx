@@ -67,9 +67,9 @@ const meta = preview.meta({
   title: "Tickets/TicketsTable"
 });
 
-export const Default = meta.story({});
+export const PopulatedTable = meta.story({});
 
-Default.test("Renders a row per ticket with status and assignee", async ({ canvas, step }) => {
+PopulatedTable.test("Renders a row per ticket with status and assignee", async ({ canvas, step }) => {
   await step("Every ticket subject is visible", async () => {
     for (const ticket of tickets) {
       await expect(canvas.getByText(ticket.subject)).toBeVisible();
@@ -93,17 +93,20 @@ Default.test("Renders a row per ticket with status and assignee", async ({ canva
   });
 });
 
-Default.test("Clicking a sortable header requests that sort field", async ({ canvas, args, userEvent, step }) => {
-  await step("Click the 'Subject' header", async () => {
-    await userEvent.click(canvas.getByRole("button", { name: /Subject/ }));
-    await expect(args.onSortChange).toHaveBeenCalledWith(TicketSortField.SUBJECT);
-  });
+PopulatedTable.test(
+  "Clicking a sortable header requests that sort field",
+  async ({ canvas, args, userEvent, step }) => {
+    await step("Click the 'Subject' header", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: /Subject/ }));
+      await expect(args.onSortChange).toHaveBeenCalledWith(TicketSortField.SUBJECT);
+    });
 
-  await step("Click the 'Status' header", async () => {
-    await userEvent.click(canvas.getByRole("button", { name: /Status/ }));
-    await expect(args.onSortChange).toHaveBeenCalledWith(TicketSortField.STATUS);
-  });
-});
+    await step("Click the 'Status' header", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: /Status/ }));
+      await expect(args.onSortChange).toHaveBeenCalledWith(TicketSortField.STATUS);
+    });
+  }
+);
 
 export const Empty = meta.story({
   args: { ...baseArgs, tickets: [] }

@@ -72,7 +72,7 @@ const meta = preview.meta({
   title: "Tickets/SelectionBanner"
 });
 
-export const Default = meta.story({});
+export const SelectionBannerStory = meta.story({ name: "Selection Banner — cross-page count" });
 
 /**
  * The banner's count is split across text nodes by a `<strong>` (`Selected <strong>3</strong> on this
@@ -84,7 +84,7 @@ function bannerTextEquals(text: string) {
   return (_content: string, element: Element | null) => element?.textContent === text;
 }
 
-Default.test(
+SelectionBannerStory.test(
   "reports only the current page's count after selecting a whole page, navigating, and selecting another",
   async ({ canvas, userEvent }) => {
     await userEvent.click(canvas.getByRole("checkbox", { name: "Select current page" }));

@@ -33,6 +33,16 @@ export function useSelection(): SelectionContextValue {
   return context;
 }
 
+/** Same-length arrays compared element-by-element — `assigneeIds` order comes from `TeammatesFilter`
+ * selection order, not a canonical sort, so two filters with the same ids in a different order are
+ * still "the same" filter. */
+function sameAssigneeIds(a: Array<string> | null, b: Array<string> | null): boolean {
+  if (a === null || b === null) {
+    return a === b;
+  }
+  return a.length === b.length && a.every((id) => b.includes(id));
+}
+
 /**
  * Resets an `all` selection when `filter` changes — it's scoped to the filter it was made under,
  * so a different filter invalidates it. An `include` selection is left untouched by the reducer (some
@@ -46,7 +56,11 @@ export function useSelectionFilterSync(filter: TableFilter, onReset?: () => void
 
   React.useEffect(() => {
     const previous = previousFilterRef.current;
-    if (previous.status === filter.status && previous.q === filter.q) {
+    if (
+      previous.status === filter.status &&
+      previous.q === filter.q &&
+      sameAssigneeIds(previous.assigneeIds, filter.assigneeIds)
+    ) {
       return;
     }
     if (selection.mode === SelectionMode.ALL) {

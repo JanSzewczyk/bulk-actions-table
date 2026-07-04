@@ -1,7 +1,6 @@
 import { Header } from "@szum-tech/design-system/components/header";
 import type { Metadata } from "next";
 import * as React from "react";
-import { GithubLinkButton } from "~/components/ui/github-link-button";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
 import { DevPanel, DevPanelFallback, TicketsTableSection } from "~/features/tickets/components";
 import { SelectionProvider } from "~/features/tickets/context/selection.context";
@@ -53,7 +52,6 @@ export default async function TicketsPage({ searchParams }: PageProps<"/">) {
           <span className="font-semibold text-body-sm">Bulk Actions Table</span>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <GithubLinkButton />
           </div>
         </div>
       </Header>

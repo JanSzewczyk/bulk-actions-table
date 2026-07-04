@@ -54,6 +54,7 @@ export function AssignPopover({ teammates, disabled, onAssign, onUnassign }: Ass
             <InputGroupInput
               aria-label="Search people"
               onChange={(event) => setSearch(event.target.value)}
+              onKeyDown={(event) => event.stopPropagation()}
               placeholder="Search…"
               value={search}
             />
