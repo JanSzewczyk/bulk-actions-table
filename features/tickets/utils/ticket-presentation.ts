@@ -33,6 +33,7 @@ export const FAILURE_REASON_LABELS: Record<FailureReason, string> = {
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   day: "2-digit",
   month: "short",
+  timeZone: "UTC",
   year: "numeric"
 });
 
