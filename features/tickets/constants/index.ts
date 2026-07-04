@@ -7,7 +7,7 @@ export const PAGE_SIZE = 25;
 export const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
 
 /** Fixed worker-pool concurrency for the async job — imitates a connection pool. */
-export const DEFAULT_CONCURRENCY = 5;
+export const DEFAULT_CONCURRENCY = 50;
 
 /** Default deterministic seed the dev panel starts with; overridable via env `DATASET_SEED`. */
 export const DEFAULT_SEED = 12345;

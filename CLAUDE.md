@@ -104,8 +104,10 @@ import { env } from "~/data/env/server";
 
 - **app/**: Next.js App Router pages, layouts, and API routes
 - **features/**: Feature-based modules (see structure below)
-- **components/**: Shared reusable components (ui/, layout/, providers/)
-- **lib/**: Utilities and configurations (logger)
+- **components/**: Shared reusable components (ui/, providers/)
+- **lib/**: Cross-feature server infrastructure — `logger.ts` (Pino), `api/http-client.ts` (shared server-only fetch
+  client every feature's `server/api` builds on), `services/errors.ts` (the `ServiceError`/`ServiceResult` tuple
+  contract), `action-types.ts` (`ActionResponse` discriminated union)
 - **data/env/**: T3 Env type-safe environment variables (server.ts, client.ts)
 - **constants/**: Static data and configuration constants
 - **tests/e2e/**: Playwright E2E tests (\*.e2e.ts pattern)
@@ -121,8 +123,9 @@ features/
 └── example-feature/
     ├── components/    # Feature-specific components
     ├── constants/      # Feature-scoped constants (client-safe)
+    ├── context/        # React Context wrapping a lib/ reducer (when selection/UI state must survive navigation)
     ├── hooks/          # Client hooks (selection state, job polling, etc.)
-    ├── lib/            # Pure client-safe logic (e.g. a reducer)
+    ├── lib/            # Pure client-safe logic (e.g. a reducer) — some features instead name this utils/
     ├── schemas/        # Zod validation schemas
     ├── server/
     │   ├── actions/    # Server actions — call server/api only, never db/services directly
@@ -133,6 +136,8 @@ features/
     └── types/          # Shared types safe for both server and client
 ```
 
+`context/` and the `lib/`-vs-`utils/` naming aren't fixed — check the feature's actual folder before assuming one.
+
 The browser never calls the feature's own API routes directly — reads go `RSC → server/api (fetch) → route handler
 → service → db`, and mutations go `client → server action → server/api (fetch) → route handler → service → db`.
 Actions/pages only ever import `server/api`; route handlers only ever import `services`.
@@ -142,8 +147,10 @@ Actions/pages only ever import `server/api`; route handlers only ever import `se
 `features/tickets/` is the concrete example of the structure above — a ~8,000-row ticket table with a hybrid
 selection model (`include` ids-set ⇄ `all` filter+excluded, in `utils/selection.ts`, unit-tested), three bulk actions
 with partial-failure retry, and a sync/async-job execution split (`BULK_ASYNC_THRESHOLD` in `data/env/server.ts`,
-default 400). See the README's dedicated sections (Selection Model, API Contract, Partial Failure) for the full
-contract — this file only tracks pitfalls specific to building on it.
+default 400). It uses `utils/` (not `lib/`) for the reducer and adds a `context/selection.context.tsx` that wraps it
+so selection survives `router.refresh()` and page/filter navigation. See the README's dedicated sections (Selection
+Model, API Contract, Partial Failure) for the full contract — this file only tracks pitfalls specific to building on
+it.
 
 ### Environment Variables
 
@@ -204,7 +211,7 @@ The app uses `next-themes` for dark/light/system theme switching:
 
 - React Compiler enabled (`reactCompiler: true`)
 - Pino externalized for server-side logging
-- Bundle analyzer available via `ANALYZE=true`
+- Bundle analysis via `npm run analyze` (Next's built-in `next experimental-analyze` — no env var to set)
 - `output: "standalone"` — required for the production `Dockerfile`
 
 ## Conventions

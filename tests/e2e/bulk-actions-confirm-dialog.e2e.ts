@@ -11,28 +11,47 @@ import { expect, test } from "@playwright/test";
  * destructive action is confirmed — the toolbar's inline count and the delete confirmation dialog itself
  * both report it, not just one of the two.
  */
-test("delete confirmation reports how many selected tickets are outside the current filter", async ({ page }) => {
+test("delete confirmation reports how many selected tickets are outside the current filter", async ({
+  page,
+  request
+}) => {
+  // Pick two tickets with different statuses directly over the API, rather than scanning the default
+  // (unsorted) page 1 for incidental variety — the seeded dataset doesn't guarantee two statuses land
+  // in the first 25 rows, and that assumption flaked in CI even though it always held locally.
+  const [openPage, pendingPage] = await Promise.all([
+    (await request.get("/api/tickets?status=OPEN&page=1&size=1")).json(),
+    (await request.get("/api/tickets?status=PENDING&page=1&size=1")).json()
+  ]);
+  const firstTicket = openPage.data[0];
+  const secondTicket = pendingPage.data[0];
+
+  // Guard the assumption the rest of this test depends on: if the status filter ever regressed and
+  // both queries returned tickets of the same status, the two would match the same filter option
+  // below and "(1 outside the current filter)" would never appear — failing confusingly, far from
+  // the real cause. Assert it explicitly here instead.
+  expect(firstTicket.status).not.toBe(secondTicket.status);
+
   await page.goto("/");
 
-  const rows = page.locator("tbody tr");
-  const rowCount = await rows.count();
+  // Search narrows to exactly the one ticket at a time. Selection survives a search/filter change in
+  // `include` mode (see `applyFilterChange` in `utils/selection.ts`), so checking each ticket under
+  // its own search term accumulates both into a single two-item selection. Waiting for the specific
+  // ticket's row (not just "any 1 row") matters: the search is debounced, so right after `.fill()` the
+  // previous search term's single-row result can still be showing and satisfy a bare count check,
+  // making the second `.check()` land on the already-checked first ticket instead of the second one.
+  const searchBox = page.getByPlaceholder("Search...");
+  await searchBox.fill(firstTicket.subject);
+  const firstRow = page.locator("tbody tr").filter({ hasText: firstTicket.subject });
+  await expect(firstRow).toHaveCount(1);
+  const firstStatus = await firstRow.locator("td").nth(3).innerText();
+  await firstRow.getByRole("checkbox").check();
 
-  // Pick two rows whose Status column differs, so filtering by one status leaves exactly one of them
-  // outside the filter. The seeded dataset has enough status variety on page 1 that this always finds one.
-  const firstIndex = 0;
-  const firstStatus = await rows.nth(0).locator("td").nth(3).innerText();
-  let secondIndex = -1;
-  for (let i = 1; i < rowCount; i++) {
-    const status = await rows.nth(i).locator("td").nth(3).innerText();
-    if (status !== firstStatus) {
-      secondIndex = i;
-      break;
-    }
-  }
-  expect(secondIndex, "expected at least two different statuses on the first page").toBeGreaterThan(-1);
+  await searchBox.fill(secondTicket.subject);
+  const secondRow = page.locator("tbody tr").filter({ hasText: secondTicket.subject });
+  await expect(secondRow).toHaveCount(1);
+  await secondRow.getByRole("checkbox").check();
 
-  await rows.nth(firstIndex).getByRole("checkbox").check();
-  await rows.nth(secondIndex).getByRole("checkbox").check();
+  await searchBox.fill("");
   await expect(page.getByText("Selected 2", { exact: false })).toBeVisible();
 
   // Filter down to the first row's status — the second selected ticket no longer matches. Scoped by

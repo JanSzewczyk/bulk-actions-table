@@ -134,8 +134,26 @@ export function TicketsTableSection({
 
     // Delete gets its own undo toast below instead of a plain success toast — showing both would
     // duplicate the same message.
+    const isDeleteWithSucceeded = request.action === BulkAction.DELETE && succeeded.length > 0;
+
     if (failed.length === 0 && request.action !== BulkAction.DELETE) {
       toast.success(formatBulkSuccessMessage(request.action, succeeded.length));
+    } else if (failed.length > 0 && isDeleteWithSucceeded) {
+      // A delete that both partially failed AND partially succeeded needs both affordances at
+      // once — retry the failures, or undo what went through — so they go in one toast (`action` +
+      // `cancel`) instead of two, which used to show as two stacked, easy-to-miss tooltips.
+      const failedIdList = failed.map((item) => item.id);
+      toast.error(formatBulkPartialFailureMessage(request.action, succeeded.length, failed.length), {
+        action: {
+          label: `Retry (${failed.length})`,
+          onClick: () => submitBulkRequest(buildRetryRequest(request, failedIdList))
+        },
+        cancel: {
+          label: "Undo",
+          onClick: () => submitBulkRequest(buildRestoreRequest(succeeded))
+        },
+        duration: UNDO_WINDOW_MS
+      });
     } else if (failed.length > 0) {
       const failedIdList = failed.map((item) => item.id);
       toast.error(formatBulkPartialFailureMessage(request.action, succeeded.length, failed.length), {
@@ -147,9 +165,7 @@ export function TicketsTableSection({
         // affordance that matters most on a partial failure disappears before it can be clicked.
         duration: UNDO_WINDOW_MS
       });
-    }
-
-    if (request.action === BulkAction.DELETE && succeeded.length > 0) {
+    } else if (isDeleteWithSucceeded) {
       toast(formatDeleteUndoMessage(succeeded.length), {
         action: {
           label: "Undo",
