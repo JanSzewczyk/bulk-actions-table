@@ -57,7 +57,7 @@ export default async function TicketsPage({ searchParams }: PageProps<"/">) {
         </div>
       </Header>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8" id="main-content">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
             <h1 className="text-heading-h1">Tickets</h1>
