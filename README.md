@@ -18,7 +18,8 @@ for large batches**
 ## 👋 Overview
 
 This project implements the "bulk actions on a data table" take-home assignment: a support-ticket table (~8,000
-seeded rows) with row/page/all-matching selection, three bulk actions with partial-failure handling, and a
+seeded rows, 6 columns — a row checkbox plus Subject/Customer/Status/Assignee/Created, with Subject/Status/Created
+sortable) with row/page/all-matching selection, three bulk actions with partial-failure handling, and a
 sync-for-small/async-job-for-large execution model with live progress and retry. Below is everything the brief
 requires — how to run it, the selection model, the API contract, partial-failure behavior, the AI-assisted decisions
 made along the way, and what's left for "with more time." The rest of the document (further down) covers the
@@ -49,9 +50,10 @@ This is `docker compose up --build` under the hood — it builds the production 
 ### Demo script
 
 Five steps to see the whole feature set in one pass. The dataset itself is reproducible (fixed seed, same ~8,000
-tickets every restart); the dev panel's default failure rate is non-zero so a large batch reliably produces a few
-failures for step 5 to retry — raise it from the Dev panel if you want more (or need a *guaranteed* partial failure
-on a small selection):
+tickets every restart); the dev panel's default failure rate is **10%** (each item gets 150–500ms of simulated
+latency), so a large batch reliably produces a few failures for step 5 to retry — raise it from the Dev panel's
+failure-rate slider (0–100%, in 5% steps) if you want more (or need a *guaranteed* partial failure on a small
+selection):
 
 1. Click the header checkbox to **select the current page** (25 rows). The toolbar appears with a live count.
 2. Click **"Select all 8,000 matching"** to escalate the selection to everything matching the current filter, not
@@ -87,9 +89,13 @@ Behavior across navigation:
 
 | Event                             | `include` mode                          | `all` mode                                    |
 | ---------------------------------- | ---------------------------------------- | ---------------------------------------------- |
-| Change page / sort                 | Selection untouched (ids persist)        | Selection untouched (scoped to the filter, not the page) |
+| Change page / page size (25\|50\|100) / sort | Selection untouched (ids persist)        | Selection untouched (scoped to the filter, not the page) |
 | Change filter (search/status/assignee) | Selection untouched — a toast reports how many picked ids now fall "outside the current filter" | Resets to empty — an `all` selection is only meaningful for the filter it was made under |
 | Toggle a row                       | Add/remove from the id set                | Add/remove from `excluded`                     |
+
+Page size is just another query-string field alongside page/sort/filter (`table-pagination.tsx`), so it goes through
+the same `router.push()` → RSC re-render path — selection reconciles against whatever rows land on the new page
+exactly like a plain page change.
 
 The filter that scopes an `all` selection is `{ status, q, assigneeIds }` — status, free-text search, and
 teammate/unassigned filtering all count toward "the current filter" equally.
@@ -183,6 +189,10 @@ the framework or the brief dictated.
 - **Selection is hybrid, not a single `Set<id>`** ([details](#-selection-model)) — the only representation that can
   express both "these specific rows" and "all 8,000 matching, minus a few" without ever materializing 8,000 ids on
   the client.
+- **Classic pagination, not infinite scroll** — the brief left this open. Pagination keeps page/sort/filter as plain,
+  bookmarkable URL state and lets the server report an exact `total` for the current filter, which "select all N
+  matching" and the `all`-mode selection model both depend on. Infinite scroll would blur "how many rows match" into
+  "how many have been fetched so far," which the hybrid selection model needs to stay exact, not an approximation.
 - **Pessimistic execution, not optimistic.** The mocked API fails randomly and partially — rolling back 7 of 25 rows
   a couple of seconds after an optimistic update reads as a bug, not a feature. The cost is paid back with a per-row
   `pending` state (dimmed row + spinner) so the rest of the table stays interactive and the user still gets immediate
@@ -194,6 +204,11 @@ the framework or the brief dictated.
   assign. A single-row or small `include` selection skips confirmation for non-destructive actions since undoing a
   mistake there is cheap; committing to "everything matching this filter" is not, so that path always states the
   count and the filter it's scoped to before executing.
+- **"Assign to…" is a searchable picker, not a plain dropdown** (`AssignPopover`) — the brief only asked that it
+  "opens a picker." It filters the teammate list client-side by name, surfaces a static "Unassigned" entry above the
+  list (which submits as its own `unassign` action, not a null assignee), disables teammates the mock data marks
+  unavailable, and flags the current user with a "You" badge — so assigning to yourself or clearing an assignment
+  are both one click away, not buried behind scrolling a flat list.
 - **One endpoint, two response shapes, one threshold** ([details](#-api-contract)) — `BULK_ASYNC_THRESHOLD` (default
   400) decides sync vs. background job. The payload is identical either way; only the execution mode changes, so the
   front end doesn't need to know or care which mode it got until it reads the response.
