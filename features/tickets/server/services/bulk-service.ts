@@ -22,8 +22,9 @@ const logger = createLogger({ module: "tickets-bulk-service" });
 /**
  * Resolves the request's target ids, validates the `assign` contract up front (a bad `assigneeId` is
  * a 400, not a per-item failure), then either runs the batch synchronously or escalates to an async
- * job when the selection is `mode: 'all'` or crosses `BULK_ASYNC_THRESHOLD`. Idempotency-keyed so a
- * retried submit returns the original outcome instead of re-executing.
+ * job purely based on the resolved id count crossing `BULK_ASYNC_THRESHOLD` — `mode: 'all'` is resolved
+ * to a concrete id list before this decision, so a filtered/excluded-down small selection still runs
+ * sync. Idempotency-keyed so a retried submit returns the original outcome instead of re-executing.
  */
 
 function resolveTargetIds(request: BulkRequest): Array<string> {
@@ -57,7 +58,7 @@ export async function executeBulkAction(
   }
 
   const targetIds = resolveTargetIds(request);
-  const isAsync = request.mode === "all" || targetIds.length >= env.BULK_ASYNC_THRESHOLD;
+  const isAsync = targetIds.length >= env.BULK_ASYNC_THRESHOLD;
 
   // Read once per request — a mid-batch dev-panel change must not alter an already-running batch.
   const simulation = getSimulationParams();

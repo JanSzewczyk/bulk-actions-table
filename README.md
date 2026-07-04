@@ -113,10 +113,11 @@ have between request payloads and ops-only feature flags.
 
 Two response shapes, chosen by the server, not the caller:
 
-- **`200 { succeeded: string[], failed: { id, reason }[] }`** — executed synchronously. Used when `mode: "include"`
-  and the id count is below `BULK_ASYNC_THRESHOLD` (default 400).
-- **`202 { jobId, status, total }`** — escalated to a background job. Used when `mode: "all"` (size isn't known
-  precisely until execution) or the id count meets/exceeds the threshold. Progress is polled via
+- **`200 { succeeded: string[], failed: { id, reason }[] }`** — executed synchronously. Used whenever the resolved
+  id count (for either `mode`) is below `BULK_ASYNC_THRESHOLD` (default 400) — `mode: "all"` is resolved against the
+  filter and excluded set server-side before this check, so a small filtered selection still runs sync.
+- **`202 { jobId, status, total }`** — escalated to a background job. Used when the resolved id count meets/exceeds
+  the threshold, regardless of `mode`. Progress is polled via
   `GET /api/jobs/:id` (counters only — `status/total/processed/succeeded/failedCount`, never the failure list itself,
   so a large batch with a high failure rate can't flood the polling client), and the full failed-item list is
   fetched separately and paginated from `GET /api/jobs/:id/failures`.

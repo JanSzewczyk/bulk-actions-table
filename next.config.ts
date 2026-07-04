@@ -43,7 +43,7 @@ export default {
   logging: {
     browserToTerminal: true
   },
-  // output: "standalone",
+  output: "standalone",
   productionBrowserSourceMaps: false,
   reactCompiler: true,
   reactStrictMode: true,
