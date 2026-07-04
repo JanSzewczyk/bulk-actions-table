@@ -33,3 +33,14 @@ export const CURRENT_USER_ID = "me";
  * the server-side matcher, so it lives here rather than in a client-only component file.
  */
 export const UNASSIGNED_TEAMMATE_ID = "unassigned";
+
+/**
+ * When an `all`-mode selection's `excluded` set covers at least this fraction of `total` (and at
+ * least `EXCLUDED_COUNT_WARNING_THRESHOLD` rows), the banner nudges the user toward an explicit
+ * `include` selection instead. The API contract stays correct either way — `excluded` payload size
+ * just stops being smaller than an equivalent `include` list once this many rows are hand-deselected.
+ */
+export const EXCLUDED_RATIO_WARNING_THRESHOLD = 0.9;
+
+/** Minimum absolute `excluded` size before the ratio warning can fire — avoids noise on small totals. */
+export const EXCLUDED_COUNT_WARNING_THRESHOLD = 50;

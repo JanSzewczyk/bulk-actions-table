@@ -1,7 +1,7 @@
 import * as React from "react";
 import { expect } from "storybook/test";
 import preview from "~/.storybook/preview";
-import { SelectionProvider } from "~/features/tickets/context/selection.context";
+import { SelectionProvider, useSelection } from "~/features/tickets/context/selection.context";
 import type { TableFilter } from "~/features/tickets/types/table-query";
 import type { TicketListItem } from "~/features/tickets/types/ticket";
 import { TicketStatus } from "~/features/tickets/types/ticket";
@@ -57,6 +57,24 @@ function TwoPageHarness() {
   );
 }
 
+/**
+ * Drives an `all`-mode selection with `excludedCount` rows manually deselected, to exercise the
+ * "you've deselected most of the matching rows" nudge (`isExcludedApproachingTotal`).
+ */
+function AllModeExclusionsHarness({ total, excludedCount }: { total: number; excludedCount: number }) {
+  const { dispatch } = useSelection();
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally mount-only, args are fixed per story
+  React.useEffect(() => {
+    dispatch({ filter: NO_FILTER, type: "SELECT_ALL_MATCHING" });
+    for (let i = 0; i < excludedCount; i += 1) {
+      dispatch({ id: `excluded-${i}`, type: "TOGGLE_ROW" });
+    }
+  }, []);
+
+  return <SelectionBanner filter={NO_FILTER} pageIds={[]} total={total} />;
+}
+
 const meta = preview.meta({
   component: TwoPageHarness,
   decorators: [
@@ -101,3 +119,26 @@ SelectionBannerStory.test(
     await expect(canvas.queryByText(bannerTextEquals("Selected 6 on this page."))).not.toBeInTheDocument();
   }
 );
+
+export const AllModeManyExclusions = meta.story({
+  name: "All mode — nearly everything excluded",
+  render: () => <AllModeExclusionsHarness excludedCount={95} total={100} />
+});
+
+AllModeManyExclusions.test(
+  "nudges toward an explicit selection once excluded covers most of the total",
+  async ({ canvas }) => {
+    await expect(canvas.getByText(bannerTextEquals("Selected all 5 matching."))).toBeVisible();
+    await expect(canvas.getByText(/You've deselected 95 rows one by one/)).toBeVisible();
+  }
+);
+
+export const AllModeFewExclusions = meta.story({
+  name: "All mode — few exclusions",
+  render: () => <AllModeExclusionsHarness excludedCount={2} total={100} />
+});
+
+AllModeFewExclusions.test("shows no nudge while only a handful of rows are excluded", async ({ canvas }) => {
+  await expect(canvas.getByText(bannerTextEquals("Selected all 98 matching."))).toBeVisible();
+  await expect(canvas.queryByText(/deselected/)).not.toBeInTheDocument();
+});

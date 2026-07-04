@@ -10,6 +10,7 @@ import { bulkActionAction } from "~/features/tickets/server/actions/bulk-action.
 import { getJobFailedIdsAction } from "~/features/tickets/server/actions/get-job-failed-ids.action";
 import { outsideFilterCountAction } from "~/features/tickets/server/actions/outside-filter-count.action";
 import { pollJobAction } from "~/features/tickets/server/actions/poll-job.action";
+import { refreshMatchingCountAction } from "~/features/tickets/server/actions/refresh-matching-count.action";
 import { createLogger } from "~/lib/logger";
 
 export const metadata: Metadata = {
@@ -74,6 +75,7 @@ export default async function TicketsPage({ searchParams }: PageProps<"/">) {
             onGetJobFailedIdsAction={getJobFailedIdsAction}
             onOutsideFilterCountAction={outsideFilterCountAction}
             onPollJobAction={pollJobAction}
+            onRefreshMatchingCountAction={refreshMatchingCountAction}
             pagination={page.pagination}
             query={query}
             teammates={teammates}

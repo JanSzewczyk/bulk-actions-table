@@ -51,6 +51,7 @@ type TicketsTableSectionProps = {
   teammates: Array<Teammate>;
   onBulkAction(request: BulkRequest, idempotencyKey: string): ActionResponse<BulkActionOutcome>;
   onOutsideFilterCountAction(ids: Array<string>, filter: TableFilter): ActionResponse<number>;
+  onRefreshMatchingCountAction(filter: TableFilter): ActionResponse<number>;
   onPollJobAction(jobId: string): ActionResponse<JobProgress>;
   onGetJobFailedIdsAction(jobId: string): ActionResponse<Array<string>>;
 };
@@ -73,6 +74,7 @@ export function TicketsTableSection({
   teammates,
   onBulkAction,
   onOutsideFilterCountAction,
+  onRefreshMatchingCountAction,
   onPollJobAction,
   onGetJobFailedIdsAction
 }: TicketsTableSectionProps) {
@@ -260,6 +262,7 @@ export function TicketsTableSection({
         filter={filter}
         isSubmitting={isSubmitting}
         jobRunning={activeJob !== null}
+        onRefreshMatchingCountAction={onRefreshMatchingCountAction}
         onSubmit={submitBulkRequest}
         outsideFilterCount={outsideFilterCount}
         teammates={teammates}

@@ -70,6 +70,9 @@ const meta = preview.meta({
     filter: NO_FILTER,
     isSubmitting: false,
     jobRunning: false,
+    onRefreshMatchingCountAction: fn((filter: TableFilter) =>
+      Promise.resolve({ data: filter === ALL_MODE_FILTER ? 500 : 8, success: true } as const)
+    ),
     onSubmit: fn(),
     outsideFilterCount: 0,
     teammates,
@@ -77,6 +80,7 @@ const meta = preview.meta({
   },
   beforeEach: async ({ args }) => {
     mocked(args.onSubmit).mockClear();
+    mocked(args.onRefreshMatchingCountAction).mockClear();
   },
   component: BulkToolbarHarness,
   decorators: [
@@ -195,6 +199,28 @@ AllModeSelection.test(
     const dialog = await screen.findByRole("alertdialog");
     await expect(dialog).toHaveTextContent(/Matches status: Open/);
     await expect(dialog).toHaveTextContent(/not just the current page/);
+
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await expect(args.onSubmit).toHaveBeenCalledWith({
+      action: BulkAction.ARCHIVE,
+      assigneeId: undefined,
+      excluded: [],
+      filter: ALL_MODE_FILTER,
+      mode: "all"
+    });
+  }
+);
+
+AllModeSelection.test(
+  "Refreshes the matching count and shows the up-to-date total once it resolves",
+  async ({ canvas, userEvent, args }) => {
+    mocked(args.onRefreshMatchingCountAction).mockResolvedValueOnce({ data: 480, success: true });
+
+    await userEvent.click(await canvas.findByRole("button", { name: "Archive" }));
+
+    await expect(args.onRefreshMatchingCountAction).toHaveBeenCalledWith(ALL_MODE_FILTER);
+    const dialog = await screen.findByRole("alertdialog");
+    await waitFor(() => expect(dialog).toHaveTextContent(/480 matching tickets/));
 
     await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
     await expect(args.onSubmit).toHaveBeenCalledWith({

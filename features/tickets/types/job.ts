@@ -30,6 +30,8 @@ export type Job = JobProgress & {
   id: string;
   action: BulkAction;
   failures: Array<FailureItem>;
+  /** `Date.now()` at creation — server-only, used to evict finished jobs after a retention window. */
+  createdAt: number;
 };
 
 /** Response shape of `GET /api/jobs/:id/failures`. */

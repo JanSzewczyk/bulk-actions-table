@@ -12,10 +12,13 @@ type UseOutsideFilterCountOptions = {
   onOutsideFilterCountAction(ids: Array<string>, filter: TableFilter): ActionResponse<number>;
 };
 
+const OUTSIDE_FILTER_COUNT_DEBOUNCE_MS = 300;
+
 /**
  * "N outside the current filter" — only meaningful for an `include` selection (an `all` selection
- * resets on filter change, so it's never stale). Cancellable so a fast filter change can't let a
- * stale response overwrite a newer one.
+ * resets on filter change, so it's never stale). Debounced so toggling many rows in quick succession
+ * (or a fast filter change) fires one server request instead of one per toggle; cancellable so a
+ * stale in-flight response can't overwrite a newer one.
  */
 export function useOutsideFilterCount({
   selection,
@@ -32,16 +35,19 @@ export function useOutsideFilterCount({
 
     let cancelled = false;
     const ids = Array.from(selection.ids);
-    onOutsideFilterCountAction(ids, filter)
-      .then((result) => {
-        if (!cancelled && result.success) {
-          setOutsideFilterCount(result.data);
-        }
-      })
-      .catch(() => undefined);
+    const timeoutId = setTimeout(() => {
+      onOutsideFilterCountAction(ids, filter)
+        .then((result) => {
+          if (!cancelled && result.success) {
+            setOutsideFilterCount(result.data);
+          }
+        })
+        .catch(() => undefined);
+    }, OUTSIDE_FILTER_COUNT_DEBOUNCE_MS);
 
     return () => {
       cancelled = true;
+      clearTimeout(timeoutId);
     };
   }, [selection, filter, onOutsideFilterCountAction]);
 

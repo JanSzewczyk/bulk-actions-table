@@ -8,7 +8,9 @@ import {
   countOutsideFilter,
   deselectCurrentPage,
   EMPTY_SELECTION,
+  filtersEqual,
   hasSelection,
+  isExcludedApproachingTotal,
   isSelected,
   PageCheckboxState,
   pageCheckboxState,
@@ -138,6 +140,29 @@ describe("applyFilterChange", () => {
     const state = all(filterA, "t1");
     expect(applyFilterChange(state, filterB)).toBe(state);
   });
+
+  test("resets an all selection when assignee ids differ despite an equal-length array with a duplicate", () => {
+    // Regression: a naive `every(id => b.includes(id))` check treats ["u1","u1"] as equal to
+    // ["u1","u2"] (same length, every element of a found in b) even though the sets differ.
+    const filterA: TableFilter = { assigneeIds: ["u1", "u1"], q: null, status: null };
+    const filterB: TableFilter = { assigneeIds: ["u1", "u2"], q: null, status: null };
+    const next = applyFilterChange(all(filterA, "t1"), filterB);
+    expect(next).toBe(EMPTY_SELECTION);
+  });
+});
+
+describe("filtersEqual", () => {
+  test("is the single comparison both the reducer and the filter-sync hook rely on", () => {
+    const filterA: TableFilter = { assigneeIds: ["u1", "u2"], q: null, status: null };
+    const filterB: TableFilter = { assigneeIds: ["u2", "u1"], q: null, status: null };
+    expect(filtersEqual(filterA, filterB)).toBe(true);
+  });
+
+  test("treats a duplicate-id array as different from a distinct-id array of the same length", () => {
+    const filterA: TableFilter = { assigneeIds: ["u1", "u1"], q: null, status: null };
+    const filterB: TableFilter = { assigneeIds: ["u1", "u2"], q: null, status: null };
+    expect(filtersEqual(filterA, filterB)).toBe(false);
+  });
 });
 
 describe("selectionCount", () => {
@@ -162,6 +187,31 @@ describe("countOutsideFilter", () => {
 
   test("is zero in all mode (an all selection resets on filter change)", () => {
     expect(countOutsideFilter(all(NO_FILTER, "t1"), new Set())).toBe(0);
+  });
+});
+
+describe("isExcludedApproachingTotal", () => {
+  test("is false in include mode regardless of size", () => {
+    expect(isExcludedApproachingTotal(include("t1"), 100, 0.9, 50)).toBe(false);
+  });
+
+  test("is false when excluded is below the absolute count threshold, even at 100% ratio", () => {
+    const state = all(NO_FILTER, ...Array.from({ length: 10 }, (_, i) => `t${i}`));
+    expect(isExcludedApproachingTotal(state, 10, 0.9, 50)).toBe(false);
+  });
+
+  test("is false when excluded clears the count threshold but not the ratio", () => {
+    const state = all(NO_FILTER, ...Array.from({ length: 60 }, (_, i) => `t${i}`));
+    expect(isExcludedApproachingTotal(state, 1000, 0.9, 50)).toBe(false);
+  });
+
+  test("is true once excluded clears both the count and ratio thresholds", () => {
+    const state = all(NO_FILTER, ...Array.from({ length: 95 }, (_, i) => `t${i}`));
+    expect(isExcludedApproachingTotal(state, 100, 0.9, 50)).toBe(true);
+  });
+
+  test("is false for a zero total", () => {
+    expect(isExcludedApproachingTotal(all(NO_FILTER), 0, 0.9, 50)).toBe(false);
   });
 });
 

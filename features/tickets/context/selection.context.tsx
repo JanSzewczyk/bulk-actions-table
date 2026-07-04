@@ -3,7 +3,12 @@
 import * as React from "react";
 import { SelectionMode, type SelectionState } from "~/features/tickets/types/selection";
 import type { TableFilter } from "~/features/tickets/types/table-query";
-import { EMPTY_SELECTION, type SelectionAction, selectionReducer } from "~/features/tickets/utils/selection";
+import {
+  EMPTY_SELECTION,
+  filtersEqual,
+  type SelectionAction,
+  selectionReducer
+} from "~/features/tickets/utils/selection";
 
 /**
  * Client-side selection store. Kept deliberately separate from the table data (which lives in the
@@ -33,16 +38,6 @@ export function useSelection(): SelectionContextValue {
   return context;
 }
 
-/** Same-length arrays compared element-by-element — `assigneeIds` order comes from `TeammatesFilter`
- * selection order, not a canonical sort, so two filters with the same ids in a different order are
- * still "the same" filter. */
-function sameAssigneeIds(a: Array<string> | null, b: Array<string> | null): boolean {
-  if (a === null || b === null) {
-    return a === b;
-  }
-  return a.length === b.length && a.every((id) => b.includes(id));
-}
-
 /**
  * Resets an `all` selection when `filter` changes — it's scoped to the filter it was made under,
  * so a different filter invalidates it. An `include` selection is left untouched by the reducer (some
@@ -56,11 +51,7 @@ export function useSelectionFilterSync(filter: TableFilter, onReset?: () => void
 
   React.useEffect(() => {
     const previous = previousFilterRef.current;
-    if (
-      previous.status === filter.status &&
-      previous.q === filter.q &&
-      sameAssigneeIds(previous.assigneeIds, filter.assigneeIds)
-    ) {
+    if (filtersEqual(previous, filter)) {
       return;
     }
     if (selection.mode === SelectionMode.ALL) {

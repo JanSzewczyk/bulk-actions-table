@@ -8,6 +8,9 @@ import type { Teammate } from "~/features/tickets/types/teammate";
 import type { Ticket } from "~/features/tickets/types/ticket";
 import { generateDataset } from "./generator";
 
+/** Cached idempotent bulk-request outcome, timestamped so it can be evicted after its TTL. */
+export type IdempotencyEntry = { outcome: BulkActionOutcome; createdAt: number };
+
 /**
  * In-memory data store for the mock backend.
  *
@@ -25,7 +28,7 @@ type TicketStore = {
   teammates: Array<Teammate>;
   jobs: Map<string, Job>;
   /** Bulk request outcomes keyed by `Idempotency-Key`, so a retried submit isn't re-executed. */
-  idempotency: Map<string, BulkActionOutcome>;
+  idempotency: Map<string, IdempotencyEntry>;
   /** Server-side simulation knobs, tunable at runtime via `GET`/`PATCH /api/dev/simulation`. */
   simulation: SimulationParams;
 };
