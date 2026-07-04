@@ -43,8 +43,30 @@ function withRemoved(set: ReadonlySet<string>, ids: ReadonlyArray<string>): Set<
   return next;
 }
 
-function filtersEqual(a: TableFilter, b: TableFilter): boolean {
-  return a.status === b.status && a.q === b.q;
+/**
+ * `assigneeIds` order comes from `TeammatesFilter` selection order, not a canonical sort, so two
+ * filters with the same ids in a different order are still "the same" filter. Comparison is by
+ * multiset equality (sorted comparison), not `every(id => bSet.has(id))` — that check passes for
+ * `["u1","u1"]` vs `["u1","u2"]` (equal length, every element of `a` found in `b`) even though the
+ * sets differ, so a real filter change could be missed.
+ */
+function assigneeIdsEqual(a: Array<string> | null, b: Array<string> | null): boolean {
+  if (a === null || b === null) {
+    return a === b;
+  }
+  if (a.length !== b.length) {
+    return false;
+  }
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((id, index) => id === sortedB[index]);
+}
+
+/** The single source of truth for "is this the same filter" — used both by the reducer
+ * (`applyFilterChange`) and by `useSelectionFilterSync` so the reset decision and the toast decision
+ * never disagree. */
+export function filtersEqual(a: TableFilter, b: TableFilter): boolean {
+  return a.status === b.status && a.q === b.q && assigneeIdsEqual(a.assigneeIds, b.assigneeIds);
 }
 
 // --- Operations -----------------------------------------------------------------------------------
@@ -151,6 +173,23 @@ export function countOutsideFilter(state: SelectionState, matchingIds: ReadonlyS
     }
   }
   return outside;
+}
+
+/**
+ * True once an `all`-mode selection's `excluded` set covers most of `total` — i.e. the user has
+ * hand-deselected almost everything and the payload is no longer meaningfully smaller than an
+ * equivalent `include` list. `include` selections are never flagged (there's no `excluded` to grow).
+ */
+export function isExcludedApproachingTotal(
+  state: SelectionState,
+  total: number,
+  ratioThreshold: number,
+  countThreshold: number
+): boolean {
+  if (state.mode !== SelectionMode.ALL || total <= 0) {
+    return false;
+  }
+  return state.excluded.size >= countThreshold && state.excluded.size / total >= ratioThreshold;
 }
 
 export const PageCheckboxState = {

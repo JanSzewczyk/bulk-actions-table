@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem } from "@szum-tech/design-system/comp
 import { ChevronLeftIcon, ChevronRightIcon, ChevronsLeftIcon, ChevronsRightIcon } from "lucide-react";
 import { PAGE_SIZE_OPTIONS } from "~/features/tickets/constants";
 import type { Pagination as PaginationMeta, TableQuery } from "~/features/tickets/types/table-query";
+import { formatCount } from "~/features/tickets/utils/ticket-presentation";
 
 type TablePaginationProps = {
   pagination: PaginationMeta;
@@ -18,8 +19,6 @@ type TablePaginationProps = {
   isPending: boolean;
   onQueryChange(patch: Partial<TableQuery>): void;
 };
-
-const numberFormatter = new Intl.NumberFormat();
 
 /**
  * Page navigation and rows-per-page for the table. The server owns paging, so navigation goes
@@ -34,8 +33,7 @@ export function TablePagination({ pagination, query, isPending, onQueryChange }:
   return (
     <div className="flex flex-wrap items-center justify-between gap-4">
       <p className="text-mute">
-        Page {numberFormatter.format(page)} of {numberFormatter.format(totalPages)} · {numberFormatter.format(total)}{" "}
-        tickets
+        Page {formatCount(page)} of {formatCount(totalPages)} · {formatCount(total)} tickets
       </p>
 
       <div className="flex items-center gap-4">

@@ -15,5 +15,5 @@ const logger = createLogger({ module: "api-users" });
 export function GET() {
   const data = listTeammates();
   logger.info({ count: data.length }, "Served teammates list");
-  return NextResponse.json(data);
+  return NextResponse.json({ data });
 }

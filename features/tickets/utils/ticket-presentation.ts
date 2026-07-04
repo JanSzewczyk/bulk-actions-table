@@ -1,4 +1,5 @@
 import type { BadgeVariant } from "@szum-tech/design-system/components/badge";
+import { FailureReason } from "~/features/tickets/types/bulk";
 import { TicketStatus as Status, type TicketStatus } from "~/features/tickets/types/ticket";
 
 /**
@@ -20,6 +21,13 @@ export const STATUS_BADGE_VARIANT: Record<TicketStatus, BadgeVariant> = {
   [Status.RESOLVED]: "success",
   [Status.CLOSED]: "secondary",
   [Status.ARCHIVED]: "outline"
+};
+
+export const FAILURE_REASON_LABELS: Record<FailureReason, string> = {
+  [FailureReason.CONFLICT]: "Conflict — another change touched this ticket.",
+  [FailureReason.NOT_FOUND]: "Ticket no longer exists.",
+  [FailureReason.TIMEOUT]: "Request timed out.",
+  [FailureReason.UNKNOWN]: "Unknown error."
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {

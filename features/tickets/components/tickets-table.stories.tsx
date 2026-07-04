@@ -1,6 +1,7 @@
 import { expect, fn } from "storybook/test";
 import preview from "~/.storybook/preview";
-import { SelectionProvider } from "~/features/tickets/hooks/use-selection";
+import { SelectionProvider } from "~/features/tickets/context/selection.context";
+import { FailureReason } from "~/features/tickets/types/bulk";
 import { SortDirection, TicketSortField } from "~/features/tickets/types/table-query";
 import type { Teammate } from "~/features/tickets/types/teammate";
 import type { TicketListItem } from "~/features/tickets/types/ticket";
@@ -41,8 +42,10 @@ const tickets: Array<TicketListItem> = [
 
 const baseArgs = {
   direction: SortDirection.DESC,
+  failedIds: new Map<string, FailureReason>(),
   isPending: false,
   onSortChange: fn(),
+  pendingIds: new Set<string>(),
   sort: TicketSortField.CREATED_AT,
   teammates,
   tickets
@@ -64,9 +67,9 @@ const meta = preview.meta({
   title: "Tickets/TicketsTable"
 });
 
-export const Default = meta.story({});
+export const PopulatedTable = meta.story({});
 
-Default.test("Renders a row per ticket with status and assignee", async ({ canvas, step }) => {
+PopulatedTable.test("Renders a row per ticket with status and assignee", async ({ canvas, step }) => {
   await step("Every ticket subject is visible", async () => {
     for (const ticket of tickets) {
       await expect(canvas.getByText(ticket.subject)).toBeVisible();
@@ -79,8 +82,9 @@ Default.test("Renders a row per ticket with status and assignee", async ({ canva
     await expect(canvas.getByText("Resolved")).toBeVisible();
   });
 
-  await step("Unassigned ticket shows a dash", async () => {
-    await expect(canvas.getByText("—")).toBeVisible();
+  await step("Unassigned ticket shows the unassigned placeholder", async () => {
+    await expect(canvas.getByText("Unassigned")).toBeVisible();
+    await expect(canvas.getByText("No assignee")).toBeVisible();
   });
 
   await step("Assigned tickets show the teammate's name", async () => {
@@ -89,17 +93,20 @@ Default.test("Renders a row per ticket with status and assignee", async ({ canva
   });
 });
 
-Default.test("Clicking a sortable header requests that sort field", async ({ canvas, args, userEvent, step }) => {
-  await step("Click the 'Subject' header", async () => {
-    await userEvent.click(canvas.getByRole("button", { name: /Subject/ }));
-    await expect(args.onSortChange).toHaveBeenCalledWith(TicketSortField.SUBJECT);
-  });
+PopulatedTable.test(
+  "Clicking a sortable header requests that sort field",
+  async ({ canvas, args, userEvent, step }) => {
+    await step("Click the 'Subject' header", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: /Subject/ }));
+      await expect(args.onSortChange).toHaveBeenCalledWith(TicketSortField.SUBJECT);
+    });
 
-  await step("Click the 'Status' header", async () => {
-    await userEvent.click(canvas.getByRole("button", { name: /Status/ }));
-    await expect(args.onSortChange).toHaveBeenCalledWith(TicketSortField.STATUS);
-  });
-});
+    await step("Click the 'Status' header", async () => {
+      await userEvent.click(canvas.getByRole("button", { name: /Status/ }));
+      await expect(args.onSortChange).toHaveBeenCalledWith(TicketSortField.STATUS);
+    });
+  }
+);
 
 export const Empty = meta.story({
   args: { ...baseArgs, tickets: [] }
@@ -116,4 +123,22 @@ export const Pending = meta.story({
 Pending.test("Marks the body as busy while a navigation is pending", async ({ canvasElement }) => {
   const body = canvasElement.querySelector("tbody");
   await expect(body).toHaveAttribute("aria-busy", "true");
+});
+
+export const RowSubmitting = meta.story({
+  args: { ...baseArgs, pendingIds: new Set(["t1"]) }
+});
+
+RowSubmitting.test("Shows a spinner instead of a checkbox on the row in flight", async ({ canvasElement }) => {
+  const rows = canvasElement.querySelectorAll("tbody tr");
+  await expect(rows[0]).toHaveAttribute("aria-busy", "true");
+  await expect(rows[0]?.querySelector("svg")).toBeVisible();
+});
+
+export const RowFailed = meta.story({
+  args: { ...baseArgs, failedIds: new Map([["t2", FailureReason.CONFLICT]]) }
+});
+
+RowFailed.test("Shows an error marker on a row that failed and stayed selected", async ({ canvas }) => {
+  await expect(canvas.getByRole("button", { name: /Last action failed/ })).toBeVisible();
 });

@@ -8,10 +8,13 @@ import {
   countOutsideFilter,
   deselectCurrentPage,
   EMPTY_SELECTION,
+  filtersEqual,
   hasSelection,
+  isExcludedApproachingTotal,
   isSelected,
   PageCheckboxState,
   pageCheckboxState,
+  removeIds,
   selectAllMatching,
   selectCurrentPage,
   selectionCount,
@@ -19,8 +22,8 @@ import {
   toggleRow
 } from "./selection";
 
-const NO_FILTER: TableFilter = { q: null, status: null };
-const OPEN_FILTER: TableFilter = { q: null, status: TicketStatus.OPEN };
+const NO_FILTER: TableFilter = { assigneeIds: null, q: null, status: null };
+const OPEN_FILTER: TableFilter = { assigneeIds: null, q: null, status: TicketStatus.OPEN };
 
 function include(...ids: Array<string>): Extract<SelectionState, { mode: typeof SelectionMode.INCLUDE }> {
   return { ids: new Set(ids), mode: SelectionMode.INCLUDE };
@@ -124,6 +127,42 @@ describe("applyFilterChange", () => {
     const state = include("t1", "t2");
     expect(applyFilterChange(state, OPEN_FILTER)).toBe(state);
   });
+
+  test("resets an all selection when only the assignee filter changes", () => {
+    const withAssignee: TableFilter = { assigneeIds: ["u1"], q: null, status: null };
+    const next = applyFilterChange(all(NO_FILTER, "t1"), withAssignee);
+    expect(next).toBe(EMPTY_SELECTION);
+  });
+
+  test("keeps an all selection when the assignee filter is the same set in a different order", () => {
+    const filterA: TableFilter = { assigneeIds: ["u1", "u2"], q: null, status: null };
+    const filterB: TableFilter = { assigneeIds: ["u2", "u1"], q: null, status: null };
+    const state = all(filterA, "t1");
+    expect(applyFilterChange(state, filterB)).toBe(state);
+  });
+
+  test("resets an all selection when assignee ids differ despite an equal-length array with a duplicate", () => {
+    // Regression: a naive `every(id => b.includes(id))` check treats ["u1","u1"] as equal to
+    // ["u1","u2"] (same length, every element of a found in b) even though the sets differ.
+    const filterA: TableFilter = { assigneeIds: ["u1", "u1"], q: null, status: null };
+    const filterB: TableFilter = { assigneeIds: ["u1", "u2"], q: null, status: null };
+    const next = applyFilterChange(all(filterA, "t1"), filterB);
+    expect(next).toBe(EMPTY_SELECTION);
+  });
+});
+
+describe("filtersEqual", () => {
+  test("is the single comparison both the reducer and the filter-sync hook rely on", () => {
+    const filterA: TableFilter = { assigneeIds: ["u1", "u2"], q: null, status: null };
+    const filterB: TableFilter = { assigneeIds: ["u2", "u1"], q: null, status: null };
+    expect(filtersEqual(filterA, filterB)).toBe(true);
+  });
+
+  test("treats a duplicate-id array as different from a distinct-id array of the same length", () => {
+    const filterA: TableFilter = { assigneeIds: ["u1", "u1"], q: null, status: null };
+    const filterB: TableFilter = { assigneeIds: ["u1", "u2"], q: null, status: null };
+    expect(filtersEqual(filterA, filterB)).toBe(false);
+  });
 });
 
 describe("selectionCount", () => {
@@ -151,6 +190,31 @@ describe("countOutsideFilter", () => {
   });
 });
 
+describe("isExcludedApproachingTotal", () => {
+  test("is false in include mode regardless of size", () => {
+    expect(isExcludedApproachingTotal(include("t1"), 100, 0.9, 50)).toBe(false);
+  });
+
+  test("is false when excluded is below the absolute count threshold, even at 100% ratio", () => {
+    const state = all(NO_FILTER, ...Array.from({ length: 10 }, (_, i) => `t${i}`));
+    expect(isExcludedApproachingTotal(state, 10, 0.9, 50)).toBe(false);
+  });
+
+  test("is false when excluded clears the count threshold but not the ratio", () => {
+    const state = all(NO_FILTER, ...Array.from({ length: 60 }, (_, i) => `t${i}`));
+    expect(isExcludedApproachingTotal(state, 1000, 0.9, 50)).toBe(false);
+  });
+
+  test("is true once excluded clears both the count and ratio thresholds", () => {
+    const state = all(NO_FILTER, ...Array.from({ length: 95 }, (_, i) => `t${i}`));
+    expect(isExcludedApproachingTotal(state, 100, 0.9, 50)).toBe(true);
+  });
+
+  test("is false for a zero total", () => {
+    expect(isExcludedApproachingTotal(all(NO_FILTER), 0, 0.9, 50)).toBe(false);
+  });
+});
+
 describe("pageCheckboxState", () => {
   test("unchecked when no visible row is selected", () => {
     expect(pageCheckboxState(EMPTY_SELECTION, ["t1", "t2"])).toBe(PageCheckboxState.UNCHECKED);
@@ -173,6 +237,30 @@ describe("pageCheckboxState", () => {
   });
 });
 
+describe("removeIds", () => {
+  test("drops succeeded ids from an include selection, leaving the rest selected", () => {
+    const next = removeIds(include("t1", "t2", "t3"), ["t1", "t3"]);
+    expect(isSelected(next, "t1")).toBe(false);
+    expect(isSelected(next, "t2")).toBe(true);
+    expect(isSelected(next, "t3")).toBe(false);
+  });
+
+  test("in all mode, adds succeeded ids to excluded instead of touching the filter", () => {
+    const next = removeIds(all(NO_FILTER, "t9"), ["t1", "t2"]);
+    expect(next.mode).toBe(SelectionMode.ALL);
+    expect(isSelected(next, "t1")).toBe(false);
+    expect(isSelected(next, "t2")).toBe(false);
+    expect(isSelected(next, "t9")).toBe(false);
+  });
+
+  test("a partial failure leaves only the failed ids selected, ready for retry", () => {
+    // Simulates the outcome handler: succeeded ids are removed, failed ids are untouched.
+    const afterOutcome = removeIds(include("t1", "t2", "t3"), ["t1", "t3"]);
+    expect(selectionCount(afterOutcome, 0)).toBe(1);
+    expect(isSelected(afterOutcome, "t2")).toBe(true);
+  });
+});
+
 describe("selectionReducer", () => {
   test("TOGGLE_ROW delegates to toggleRow", () => {
     const next = selectionReducer(EMPTY_SELECTION, { id: "t1", type: "TOGGLE_ROW" });
@@ -192,6 +280,12 @@ describe("selectionReducer", () => {
   test("CLEAR empties the selection", () => {
     const next = selectionReducer(all(NO_FILTER), { type: "CLEAR" });
     expect(hasSelection(next)).toBe(false);
+  });
+
+  test("REMOVE_IDS delegates to removeIds", () => {
+    const next = selectionReducer(include("t1", "t2"), { ids: ["t1"], type: "REMOVE_IDS" });
+    expect(isSelected(next, "t1")).toBe(false);
+    expect(isSelected(next, "t2")).toBe(true);
   });
 
   test("full escalation flow: page → all → deselect one → clear", () => {

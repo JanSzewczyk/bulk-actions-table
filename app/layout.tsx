@@ -1,6 +1,6 @@
-import { Toaster } from "@szum-tech/design-system/components/toaster";
 import type { Metadata } from "next";
 
+import { AppToaster } from "~/components/providers/app-toaster";
 import { ThemeProvider } from "~/components/providers/theme-provider";
 
 import "./globals.css";
@@ -16,7 +16,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" disableTransitionOnChange enableSystem>
           {children}
-          <Toaster />
+          <AppToaster />
         </ThemeProvider>
       </body>
     </html>

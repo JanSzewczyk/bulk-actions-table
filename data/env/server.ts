@@ -14,7 +14,7 @@ export const env = createEnv({
       .optional()
       .transform((value) => value === "true"),
     /** Element count above which a bulk action escalates from sync to an async job. */
-    BULK_ASYNC_THRESHOLD: z.coerce.number().int().positive().optional().default(50),
+    BULK_ASYNC_THRESHOLD: z.coerce.number().int().positive().optional().default(400),
     CI: z
       .enum(["true", "false", "0", "1"])
       .optional()

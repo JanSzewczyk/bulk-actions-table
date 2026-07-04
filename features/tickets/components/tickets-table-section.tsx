@@ -3,14 +3,18 @@
 import { toast } from "@szum-tech/design-system/components/toaster";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
-import { ACTIVE_JOB_STORAGE_KEY, UNDO_WINDOW_MS } from "~/features/tickets/constants";
-import { useJobPolling } from "~/features/tickets/hooks/use-job-polling";
-import { useSelection } from "~/features/tickets/hooks/use-selection";
-import { mergeTableQuery, stringifyTableQuery } from "~/features/tickets/lib/table-query-url";
-import { formatCount } from "~/features/tickets/lib/ticket-presentation";
-import { BulkAction, type BulkActionOutcome, type BulkRequest } from "~/features/tickets/types/bulk";
-import type { JobProgress } from "~/features/tickets/types/job";
-import { SelectionMode } from "~/features/tickets/types/selection";
+import { TableControls } from "~/features/tickets/components/tickets-table-controls/table-controls";
+import { UNDO_WINDOW_MS } from "~/features/tickets/constants";
+import { useSelection, useSelectionFilterSync } from "~/features/tickets/context/selection.context";
+import { type ActiveJob, useActiveJob } from "~/features/tickets/hooks/use-active-job";
+import { useOutsideFilterCount } from "~/features/tickets/hooks/use-outside-filter-count";
+import {
+  BulkAction,
+  type BulkActionOutcome,
+  type BulkRequest,
+  type FailureReason
+} from "~/features/tickets/types/bulk";
+import { type JobProgress, JobStatus } from "~/features/tickets/types/job";
 import {
   type Pagination,
   SortDirection,
@@ -20,11 +24,23 @@ import {
 } from "~/features/tickets/types/table-query";
 import type { Teammate } from "~/features/tickets/types/teammate";
 import type { TicketListItem } from "~/features/tickets/types/ticket";
+import {
+  buildRestoreRequest,
+  buildRetryRequest,
+  formatBulkPartialFailureMessage,
+  formatBulkSuccessMessage,
+  formatDeleteUndoMessage,
+  formatJobCompletedFailureMessage,
+  formatJobCompletedSuccessMessage,
+  formatJobCrashedMessage,
+  formatJobLostMessage,
+  formatJobStartedMessage
+} from "~/features/tickets/utils/bulk-outcome";
+import { mergeTableQuery, stringifyTableQuery } from "~/features/tickets/utils/table-query-url";
 import type { ActionResponse } from "~/lib/action-types";
 import { BulkToolbar } from "./bulk-toolbar";
 import { JobProgressBar } from "./job-progress-bar";
 import { SelectionBanner } from "./selection-banner";
-import { TableControls } from "./table-controls";
 import { TablePagination } from "./table-pagination";
 import { TicketsTable } from "./tickets-table";
 
@@ -35,54 +51,21 @@ type TicketsTableSectionProps = {
   teammates: Array<Teammate>;
   onBulkAction(request: BulkRequest, idempotencyKey: string): ActionResponse<BulkActionOutcome>;
   onOutsideFilterCountAction(ids: Array<string>, filter: TableFilter): ActionResponse<number>;
+  onRefreshMatchingCountAction(filter: TableFilter): ActionResponse<number>;
   onPollJobAction(jobId: string): ActionResponse<JobProgress>;
   onGetJobFailedIdsAction(jobId: string): ActionResponse<Array<string>>;
 };
-
-type ActiveJob = { jobId: string; action: BulkAction; assigneeId?: string };
-
-const ACTION_VERB: Record<BulkAction, string> = {
-  [BulkAction.ARCHIVE]: "Archived",
-  [BulkAction.ASSIGN]: "Assigned",
-  [BulkAction.DELETE]: "Deleted",
-  [BulkAction.RESTORE]: "Restored",
-  [BulkAction.UNASSIGN]: "Unassigned"
-};
-
-function buildRetryRequest(source: BulkRequest, ids: Array<string>): BulkRequest {
-  return {
-    action: source.action,
-    assigneeId: source.assigneeId,
-    ids,
-    mode: "include"
-  };
-}
-
-function buildRestoreRequest(ids: Array<string>): BulkRequest {
-  return {
-    action: BulkAction.RESTORE,
-    ids,
-    mode: "include"
-  };
-}
-
-function readStoredActiveJob(): ActiveJob | null {
-  const raw = sessionStorage.getItem(ACTIVE_JOB_STORAGE_KEY);
-  if (raw === null) {
-    return null;
-  }
-  try {
-    return JSON.parse(raw) as ActiveJob;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Owns bulk-submission end to end (sync/async branching, partial-failure and undo toasts, job
  * polling) rather than the toolbar, because an active selection — and with it the toolbar — clears
  * the moment an action escalates to an async job. This component sits above that churn, survives
  * `router.refresh()`, and is the only stable place to track a running job across its lifetime.
+ *
+ * The mechanics — job persistence/polling (`useActiveJob`), outside-filter-count fetching
+ * (`useOutsideFilterCount`), selection/filter reconciliation (`useSelectionFilterSync`), and the
+ * outcome copy (`utils/bulk-outcome`) — live in dedicated, independently testable modules. This
+ * component's own job is to coordinate them and decide what to show the user for each outcome.
  */
 export function TicketsTableSection({
   tickets,
@@ -91,6 +74,7 @@ export function TicketsTableSection({
   teammates,
   onBulkAction,
   onOutsideFilterCountAction,
+  onRefreshMatchingCountAction,
   onPollJobAction,
   onGetJobFailedIdsAction
 }: TicketsTableSectionProps) {
@@ -99,28 +83,34 @@ export function TicketsTableSection({
   const [isPending, startTransition] = React.useTransition();
   const [isSubmitting, startSubmitTransition] = React.useTransition();
   const { selection, dispatch } = useSelection();
-  const [outsideFilterCount, setOutsideFilterCount] = React.useState(0);
-  const [activeJob, setActiveJob] = React.useState<ActiveJob | null>(null);
+  // Ids currently in flight for the row-level pending/spinner state — cleared as soon as the
+  // request settles, regardless of the sync/async outcome (an escalated 202 response is itself fast).
+  const [pendingIds, setPendingIds] = React.useState<ReadonlySet<string>>(new Set());
+  // Failed-and-still-selected ids from the last outcome, id → reason, for the row-level error marker.
+  // Cleared per id as soon as a later attempt (retry/undo) succeeds on it.
+  const [failedIds, setFailedIds] = React.useState<ReadonlyMap<string, FailureReason>>(new Map());
 
-  const filter: TableFilter = { q: query.q, status: query.status };
+  const filter: TableFilter = { assigneeIds: query.assigneeIds, q: query.q, status: query.status };
   const pageIds = tickets.map((ticket) => ticket.id);
 
-  // Resume polling a job that was still running when the page was refreshed. Read in a mount effect
-  // (never a useState initializer) so this stays SSR-safe — sessionStorage doesn't exist on the server.
-  React.useEffect(() => {
-    const stored = readStoredActiveJob();
-    if (stored) {
-      setActiveJob(stored);
+  /** Only the visible page can show per-row pending — `mode: 'all'` never materializes every id. */
+  function computeVisiblePendingIds(request: BulkRequest): Set<string> {
+    if (request.mode === "include") {
+      const targetIds = new Set(request.ids);
+      return new Set(pageIds.filter((id) => targetIds.has(id)));
     }
-  }, []);
+    const excluded = new Set(request.excluded);
+    return new Set(pageIds.filter((id) => !excluded.has(id)));
+  }
+
+  useSelectionFilterSync(filter, () => toast.info("Selection cleared after the filter changed."));
+  const outsideFilterCount = useOutsideFilterCount({ filter, onOutsideFilterCountAction, selection });
 
   function handleOutcome(request: BulkRequest, outcome: BulkActionOutcome) {
     if (outcome.mode === "async") {
-      toast.info(`Started a background job for ${formatCount(outcome.total)} tickets.`);
+      toast.info(formatJobStartedMessage(outcome.total));
       dispatch({ type: "CLEAR" });
-      const job: ActiveJob = { action: request.action, assigneeId: request.assigneeId, jobId: outcome.jobId };
-      sessionStorage.setItem(ACTIVE_JOB_STORAGE_KEY, JSON.stringify(job));
-      setActiveJob(job);
+      startJob({ action: request.action, assigneeId: request.assigneeId, jobId: outcome.jobId });
       return;
     }
 
@@ -129,28 +119,54 @@ export function TicketsTableSection({
       dispatch({ ids: succeeded, type: "REMOVE_IDS" });
     }
 
+    // Row-level error marker: a later attempt clears a ticket's own failure, then it may pick up a
+    // fresh one from this same outcome.
+    setFailedIds((previous) => {
+      const next = new Map(previous);
+      for (const id of succeeded) {
+        next.delete(id);
+      }
+      for (const item of failed) {
+        next.set(item.id, item.reason);
+      }
+      return next;
+    });
+
     // Delete gets its own undo toast below instead of a plain success toast — showing both would
     // duplicate the same message.
-    if (failed.length === 0 && request.action !== BulkAction.DELETE) {
-      toast.success(`${ACTION_VERB[request.action]} ${formatCount(succeeded.length)} tickets.`);
-    } else if (failed.length > 0) {
-      const failedIds = failed.map((item) => item.id);
-      toast.error(
-        `${ACTION_VERB[request.action]} ${formatCount(succeeded.length)} of ${formatCount(succeeded.length + failed.length)} · ${formatCount(failed.length)} failed.`,
-        {
-          action: {
-            label: `Retry (${failed.length})`,
-            onClick: () => submitBulkRequest(buildRetryRequest(request, failedIds))
-          },
-          // A toast with a retry action needs to outlive sonner's default ~4s — otherwise the one
-          // affordance that matters most on a partial failure disappears before it can be clicked.
-          duration: UNDO_WINDOW_MS
-        }
-      );
-    }
+    const isDeleteWithSucceeded = request.action === BulkAction.DELETE && succeeded.length > 0;
 
-    if (request.action === BulkAction.DELETE && succeeded.length > 0) {
-      toast(`Deleted ${formatCount(succeeded.length)} tickets.`, {
+    if (failed.length === 0 && request.action !== BulkAction.DELETE) {
+      toast.success(formatBulkSuccessMessage(request.action, succeeded.length));
+    } else if (failed.length > 0 && isDeleteWithSucceeded) {
+      // A delete that both partially failed AND partially succeeded needs both affordances at
+      // once — retry the failures, or undo what went through — so they go in one toast (`action` +
+      // `cancel`) instead of two, which used to show as two stacked, easy-to-miss tooltips.
+      const failedIdList = failed.map((item) => item.id);
+      toast.error(formatBulkPartialFailureMessage(request.action, succeeded.length, failed.length), {
+        action: {
+          label: `Retry (${failed.length})`,
+          onClick: () => submitBulkRequest(buildRetryRequest(request, failedIdList))
+        },
+        cancel: {
+          label: "Undo",
+          onClick: () => submitBulkRequest(buildRestoreRequest(succeeded))
+        },
+        duration: UNDO_WINDOW_MS
+      });
+    } else if (failed.length > 0) {
+      const failedIdList = failed.map((item) => item.id);
+      toast.error(formatBulkPartialFailureMessage(request.action, succeeded.length, failed.length), {
+        action: {
+          label: `Retry (${failed.length})`,
+          onClick: () => submitBulkRequest(buildRetryRequest(request, failedIdList))
+        },
+        // A toast with a retry action needs to outlive sonner's default ~4s — otherwise the one
+        // affordance that matters most on a partial failure disappears before it can be clicked.
+        duration: UNDO_WINDOW_MS
+      });
+    } else if (isDeleteWithSucceeded) {
+      toast(formatDeleteUndoMessage(succeeded.length), {
         action: {
           label: "Undo",
           onClick: () => submitBulkRequest(buildRestoreRequest(succeeded))
@@ -164,42 +180,16 @@ export function TicketsTableSection({
 
   function submitBulkRequest(request: BulkRequest) {
     const idempotencyKey = crypto.randomUUID();
+    setPendingIds(computeVisiblePendingIds(request));
     startSubmitTransition(async () => {
       const result = await onBulkAction(request, idempotencyKey);
+      setPendingIds(new Set());
       if (!result.success) {
         toast.error(result.error);
         return;
       }
       handleOutcome(request, result.data);
     });
-  }
-
-  function handleJobCompleted(finalProgress: JobProgress) {
-    const completedJob = activeJob;
-    sessionStorage.removeItem(ACTIVE_JOB_STORAGE_KEY);
-    setActiveJob(null);
-    router.refresh();
-
-    if (!completedJob) {
-      return;
-    }
-
-    if (finalProgress.failedCount > 0) {
-      toast.error(
-        `Background job finished: ${formatCount(finalProgress.succeeded)} of ${formatCount(finalProgress.total)} · ${formatCount(finalProgress.failedCount)} failed.`,
-        {
-          action: {
-            label: `Retry failed (${finalProgress.failedCount})`,
-            onClick: () => {
-              void retryJobFailures(completedJob);
-            }
-          },
-          duration: UNDO_WINDOW_MS
-        }
-      );
-    } else {
-      toast.success(`Background job finished: ${formatCount(finalProgress.succeeded)} tickets.`);
-    }
   }
 
   async function retryJobFailures(job: ActiveJob) {
@@ -215,50 +205,51 @@ export function TicketsTableSection({
     });
   }
 
-  const jobProgress = useJobPolling({
-    jobId: activeJob?.jobId ?? null,
-    onCompleted: handleJobCompleted,
+  const { activeJob, jobProgress, startJob } = useActiveJob({
+    onCompleted: (completedJob, finalProgress) => {
+      router.refresh();
+
+      // The runner threw before finishing — distinct from a normal completion, since `processed`
+      // reflects only what ran before the crash, not the full requested batch.
+      if (finalProgress.status === JobStatus.FAILED) {
+        toast.error(formatJobCrashedMessage(finalProgress), {
+          action:
+            finalProgress.failedCount > 0
+              ? {
+                  label: `Retry failed (${finalProgress.failedCount})`,
+                  onClick: () => {
+                    void retryJobFailures(completedJob);
+                  }
+                }
+              : undefined,
+          duration: UNDO_WINDOW_MS
+        });
+        return;
+      }
+
+      if (finalProgress.failedCount > 0) {
+        toast.error(formatJobCompletedFailureMessage(finalProgress), {
+          action: {
+            label: `Retry failed (${finalProgress.failedCount})`,
+            onClick: () => {
+              void retryJobFailures(completedJob);
+            }
+          },
+          duration: UNDO_WINDOW_MS
+        });
+      } else {
+        toast.success(formatJobCompletedSuccessMessage(finalProgress));
+      }
+    },
+    // Polling gave up after repeated failed requests (lost connection, or the server lost the job —
+    // e.g. a restart wiped the in-memory store). `router.refresh()` lets the user see the table's
+    // actual current state instead of trusting a job we can no longer track.
+    onLost: () => {
+      router.refresh();
+      toast.error(formatJobLostMessage());
+    },
     onPollAction: onPollJobAction
   });
-
-  // Reset an `all` selection when the filter changes (it is scoped to the filter it was made under),
-  // and tell the user why. An `include` selection is left untouched by the reducer.
-  const previousFilterRef = React.useRef(filter);
-  React.useEffect(() => {
-    const previous = previousFilterRef.current;
-    const nextFilter: TableFilter = { q: query.q, status: query.status };
-    if (previous.status === nextFilter.status && previous.q === nextFilter.q) {
-      return;
-    }
-    if (selection.mode === SelectionMode.ALL) {
-      toast.info("Selection cleared after the filter changed.");
-    }
-    dispatch({ filter: nextFilter, type: "FILTER_CHANGED" });
-    previousFilterRef.current = nextFilter;
-  }, [query.q, query.status, selection.mode, dispatch]);
-
-  // "N outside the current filter" — only meaningful for an `include` selection (an `all` selection
-  // resets on filter change, so it's never stale).
-  React.useEffect(() => {
-    if (selection.mode !== SelectionMode.INCLUDE || selection.ids.size === 0) {
-      setOutsideFilterCount(0);
-      return;
-    }
-
-    let cancelled = false;
-    const ids = Array.from(selection.ids);
-    onOutsideFilterCountAction(ids, { q: query.q, status: query.status })
-      .then((result) => {
-        if (!cancelled && result.success) {
-          setOutsideFilterCount(result.data);
-        }
-      })
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selection, query.q, query.status, onOutsideFilterCountAction]);
 
   function applyQuery(patch: Partial<TableQuery>) {
     const nextQuery = mergeTableQuery(query, patch);
@@ -281,11 +272,13 @@ export function TicketsTableSection({
 
   return (
     <div className="flex flex-col gap-4">
-      <TableControls isPending={isPending} onQueryChange={applyQuery} query={query} />
-      {jobProgress ? <JobProgressBar progress={jobProgress} /> : null}
+      <TableControls isPending={isPending} onQueryChange={applyQuery} query={query} teammates={teammates} />
+      {jobProgress && activeJob ? <JobProgressBar action={activeJob.action} progress={jobProgress} /> : null}
       <BulkToolbar
+        filter={filter}
         isSubmitting={isSubmitting}
         jobRunning={activeJob !== null}
+        onRefreshMatchingCountAction={onRefreshMatchingCountAction}
         onSubmit={submitBulkRequest}
         outsideFilterCount={outsideFilterCount}
         teammates={teammates}
@@ -294,8 +287,10 @@ export function TicketsTableSection({
       <SelectionBanner filter={filter} pageIds={pageIds} total={pagination.total} />
       <TicketsTable
         direction={query.direction}
+        failedIds={failedIds}
         isPending={isPending}
         onSortChange={handleSortChange}
+        pendingIds={pendingIds}
         sort={query.sort}
         teammates={teammates}
         tickets={tickets}

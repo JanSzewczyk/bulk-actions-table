@@ -7,7 +7,7 @@ import { logger } from "./logger";
 import { mapServiceError } from "./map-service-error";
 
 /**
- * Poll target for `use-job-polling.ts`. A read, but the job id it polls only exists in client state
+ * Poll target for `use-job-polling.tsx`. A read, but the job id it polls only exists in client state
  * (the selection/job that started it), so a server action is the only way to reach it without the
  * client calling the API directly.
  */

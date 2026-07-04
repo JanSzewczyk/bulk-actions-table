@@ -5,17 +5,20 @@ import { Field } from "@szum-tech/design-system/components/field";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@szum-tech/design-system/components/input-group";
 import { Select, SelectContent, SelectItem } from "@szum-tech/design-system/components/select";
 import { Spinner } from "@szum-tech/design-system/components/spinner";
-import { SearchIcon, XIcon } from "lucide-react";
+import { FilterXIcon, SearchIcon, XIcon } from "lucide-react";
 import * as React from "react";
-import { STATUS_LABELS } from "~/features/tickets/lib/ticket-presentation";
 import type { TableQuery } from "~/features/tickets/types/table-query";
+import type { Teammate } from "~/features/tickets/types/teammate";
 import { type TicketStatus, TicketStatuses } from "~/features/tickets/types/ticket";
+import { STATUS_LABELS } from "~/features/tickets/utils/ticket-presentation";
+import { TeammatesFilter } from "./teammates-filter";
 
 const ALL_STATUSES = "ALL";
 const SEARCH_DEBOUNCE_MS = 350;
 
 type TableControlsProps = {
   query: TableQuery;
+  teammates: Array<Teammate>;
   isPending: boolean;
   onQueryChange(patch: Partial<TableQuery>): void;
 };
@@ -23,13 +26,22 @@ type TableControlsProps = {
 /**
  * Filter/search controls above the table. The status filter pushes a new URL immediately; the search
  * box debounces so typing does not fire a navigation per keystroke. The input is locally controlled
- * but re-syncs whenever the committed query (`query.q`) changes underneath it.
+ * but re-syncs whenever the committed query (`query.q`) changes underneath it — except when that
+ * change is just the round trip of our own last debounced commit landing. Without that guard, typing
+ * fast enough to outrun the navigation round trip meant the resync effect would stomp the newer
+ * keystrokes with the stale value that had just been pushed, making characters randomly disappear.
  */
-export function TableControls({ query, isPending, onQueryChange }: TableControlsProps) {
+export function TableControls({ query, teammates, isPending, onQueryChange }: TableControlsProps) {
   const [search, setSearch] = React.useState(query.q ?? "");
+  const lastCommittedRef = React.useRef(query.q ?? null);
+  const hasActiveFilters = query.status !== null || query.q !== null || (query.assigneeIds?.length ?? 0) > 0;
 
-  // Re-sync when the URL changes from elsewhere (back/forward, clear).
+  // Re-sync when the URL changes from elsewhere (back/forward, clear, another filter resetting it).
   React.useEffect(() => {
+    if (query.q === lastCommittedRef.current) {
+      return;
+    }
+    lastCommittedRef.current = query.q ?? null;
     setSearch(query.q ?? "");
   }, [query.q]);
 
@@ -37,12 +49,21 @@ export function TableControls({ query, isPending, onQueryChange }: TableControls
   React.useEffect(() => {
     const trimmed = search.trim();
     const nextValue = trimmed.length > 0 ? trimmed : null;
-    if (nextValue === query.q) {
+    if (nextValue === lastCommittedRef.current) {
       return;
     }
-    const timeout = setTimeout(() => onQueryChange({ q: nextValue }), SEARCH_DEBOUNCE_MS);
+    const timeout = setTimeout(() => {
+      lastCommittedRef.current = nextValue;
+      onQueryChange({ q: nextValue });
+    }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timeout);
-  }, [search, query.q, onQueryChange]);
+  }, [search, onQueryChange]);
+
+  function handleClearFilters() {
+    lastCommittedRef.current = null;
+    setSearch("");
+    onQueryChange({ assigneeIds: null, q: null, status: null });
+  }
 
   return (
     <div className="flex flex-wrap items-end gap-3">
@@ -76,6 +97,26 @@ export function TableControls({ query, isPending, onQueryChange }: TableControls
           </SelectContent>
         </Select>
       </Field>
+
+      <TeammatesFilter
+        disabled={isPending}
+        onValueChange={(assigneeIds) => onQueryChange({ assigneeIds: assigneeIds.length > 0 ? assigneeIds : null })}
+        teammates={teammates}
+        value={query.assigneeIds ?? []}
+      />
+
+      {hasActiveFilters ? (
+        <Button
+          className="ml-auto"
+          disabled={isPending}
+          onClick={handleClearFilters}
+          size="sm"
+          startIcon={<FilterXIcon />}
+          variant="ghost"
+        >
+          Clear filters
+        </Button>
+      ) : null}
     </div>
   );
 }

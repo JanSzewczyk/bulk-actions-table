@@ -36,6 +36,16 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000). The ~8,000-ticket dataset is generated deterministically from a
 fixed seed on first run, so it's identical across restarts — no database or seed script needed.
 
+**Or, one line with Docker** (no local Node/npm install required at all — the image builds and runs in a container):
+
+```bash
+npm run docker:up
+```
+
+This is `docker compose up --build` under the hood — it builds the production image and serves it at
+[http://localhost:3000](http://localhost:3000). `npm run docker:down` stops and removes it. See
+[🚀 Deployment](#-deployment) for the manual `docker build`/`docker run` equivalent.
+
 ### Demo script
 
 Five steps to see the whole feature set in one pass. The dataset itself is reproducible (fixed seed, same ~8,000
@@ -69,7 +79,7 @@ Row selection is a hybrid of two representations, not a single `Set<id>`:
   request scale independently of how many rows are visible.
 
 A plain `Set<id>` can't represent "all matching, minus a few" without enumerating every id; a page-scoped selection
-can't answer "select all matching" at all. The reducer (`features/tickets/lib/selection.ts`) is pure and framework-free
+can't answer "select all matching" at all. The reducer (`features/tickets/utils/selection.ts`) is pure and framework-free
 — a `useReducer` + Context wraps it (`use-selection.ts`) so the selection survives `router.refresh()` and filter/page
 navigation without being tied to the query cache.
 
@@ -95,12 +105,19 @@ Idempotency-Key: <uuid>   ← required; a retried submit with the same key retur
   "mode": "all", "filter": { q, status }, "excluded": string[] }
 ```
 
+**Deliberately not in this payload:** `failureRate`, `seed`, and `concurrency`. An earlier draft of the contract
+had the caller pass these alongside the request; I moved them server-side instead (`GET`/`PATCH
+/api/dev/simulation`, edited from the Dev panel) so a client can influence *what* happens to its own tickets but
+never *how reliably* the simulated backend behaves while doing it — the same separation a real deployment would
+have between request payloads and ops-only feature flags.
+
 Two response shapes, chosen by the server, not the caller:
 
-- **`200 { succeeded: string[], failed: { id, reason }[] }`** — executed synchronously. Used when `mode: "include"`
-  and the id count is below `BULK_ASYNC_THRESHOLD` (default 50).
-- **`202 { jobId, status, total }`** — escalated to a background job. Used when `mode: "all"` (size isn't known
-  precisely until execution) or the id count meets/exceeds the threshold. Progress is polled via
+- **`200 { succeeded: string[], failed: { id, reason }[] }`** — executed synchronously. Used whenever the resolved
+  id count (for either `mode`) is below `BULK_ASYNC_THRESHOLD` (default 400) — `mode: "all"` is resolved against the
+  filter and excluded set server-side before this check, so a small filtered selection still runs sync.
+- **`202 { jobId, status, total }`** — escalated to a background job. Used when the resolved id count meets/exceeds
+  the threshold, regardless of `mode`. Progress is polled via
   `GET /api/jobs/:id` (counters only — `status/total/processed/succeeded/failedCount`, never the failure list itself,
   so a large batch with a high failure rate can't flood the polling client), and the full failed-item list is
   fetched separately and paginated from `GET /api/jobs/:id/failures`.
@@ -110,6 +127,12 @@ job).** The production path for this would swap the in-memory `globalThis` store
 queue/worker; the front end wouldn't change at all. The explicit limitation of the current mock: it's a single
 Node process (`globalThis` Map), so it doesn't survive a restart or scale across serverless instances — by design,
 since a durable store is out of scope for this assignment.
+
+**Dev panel endpoint (`/api/dev/simulation`) is intentionally global and unauthenticated.** It mutates one shared
+`failureRate`/`seed`/`concurrency` record used by every request, with no per-session scoping and no auth check. For a
+single-evaluator take-home this is the simplest way to make the required failure simulation controllable from the UI;
+it would need per-session scoping (or a real auth/rate-limit gate) before this pattern reached a multi-tenant
+deployment, since anyone hitting a public URL could otherwise change what every other visitor experiences.
 
 ## ⚠️ Partial Failure
 
@@ -134,7 +157,7 @@ At least two decisions where AI-assisted output was deliberately overridden:
    this dataset size, each triggering a `setState` — the progress bar meant to improve UX would instead freeze the
    tab. SSE only makes sense with the same coalescing complexity polling already gets for free.
 2. **All-async → threshold escalation.** AI defaulted every bulk operation into an async job. I introduced a
-   threshold (`BULK_ASYNC_THRESHOLD`, default 50): small operations shouldn't pay job ceremony (an extra round-trip,
+   threshold (`BULK_ASYNC_THRESHOLD`, default 400): small operations shouldn't pay job ceremony (an extra round-trip,
    polling, a progress bar for half a second), and large ones can't be synchronous (timeout risk, no feedback while
    waiting). The threshold is a configurable env var, directly answering the brief's question about how the API
    contract should shape execution.
@@ -149,6 +172,46 @@ At least two decisions where AI-assisted output was deliberately overridden:
    without a second source of truth for the data. The one real thing given up — prefetching the next page — is
    listed under "with more time" below.
 
+## 🧭 Decisions
+
+The brief is deliberately silent on most of these — each one is a judgment call made for this project, not something
+the framework or the brief dictated.
+
+- **Selection is hybrid, not a single `Set<id>`** ([details](#-selection-model)) — the only representation that can
+  express both "these specific rows" and "all 8,000 matching, minus a few" without ever materializing 8,000 ids on
+  the client.
+- **Pessimistic execution, not optimistic.** The mocked API fails randomly and partially — rolling back 7 of 25 rows
+  a couple of seconds after an optimistic update reads as a bug, not a feature. The cost is paid back with a per-row
+  `pending` state (dimmed row + spinner) so the rest of the table stays interactive and the user still gets immediate
+  feedback on *which* rows are in flight.
+- **Delete is soft, with a 7-second undo window** (`UNDO_WINDOW_MS`), not an immediate hard delete — it answers the
+  brief's "is it recoverable?" question directly, and undo itself is just another bulk request (`action: "restore"`),
+  so it inherits partial-failure handling for free instead of needing its own code path.
+- **`all`-mode actions always confirm, regardless of action type** — even non-destructive ones like archive or
+  assign. A single-row or small `include` selection skips confirmation for non-destructive actions since undoing a
+  mistake there is cheap; committing to "everything matching this filter" is not, so that path always states the
+  count and the filter it's scoped to before executing.
+- **One endpoint, two response shapes, one threshold** ([details](#-api-contract)) — `BULK_ASYNC_THRESHOLD` (default
+  400) decides sync vs. background job. The payload is identical either way; only the execution mode changes, so the
+  front end doesn't need to know or care which mode it got until it reads the response.
+- **Partial failure reuses the selection as the retry queue** ([details](#️-partial-failure)) instead of a separate
+  error/retry UI — succeeded ids drop out of the selection, failed ones stay in it with an error marker, and "Retry"
+  just resubmits the current selection.
+- **Only one bulk job can run at a time.** Bulk actions are disabled while a job is in flight. This is a scope
+  decision, not a technical limitation — it keeps client state (one active job, one progress bar) simple, at the cost
+  of not letting a user kick off a second unrelated batch while the first is still running.
+- **Table state lives in the URL; selection lives in its own client store**, deliberately not in the same place.
+  Page/sort/filter are server-owned and get replaced wholesale by `router.refresh()`; selection is user intent that
+  must survive that refresh untouched — keeping them separate makes that survival automatic rather than something to
+  special-case.
+- **An active job id is persisted to `sessionStorage`**, so refreshing the page mid-job resumes polling the same job
+  instead of losing track of it — a small addition, but the difference between a progress bar that survives a
+  reload and one that silently forgets a running batch.
+
+Two of the above (execution mode escalation, and how selection behaves across filter changes) were also points where
+AI-assisted suggestions were deliberately overridden — see [🤖 AI Moments](#-ai-moments) for the fuller before/after
+on those two.
+
 ## 🔭 With More Time
 
 - **TanStack Query for next-page prefetch and background revalidation** — the one concrete thing given up by the
@@ -162,11 +225,20 @@ At least two decisions where AI-assisted output was deliberately overridden:
   retry, end to end against a running server.
 - **A real queue (e.g. BullMQ) behind the same `POST /api/tickets/bulk` contract** — the contract was designed so
   this swap wouldn't require any front-end change.
+- **Test coverage for the async job lifecycle** (`use-job-polling.tsx`, `use-active-job.tsx`) — currently exercised
+  manually and by code inspection only. This is the highest-complexity code in the feature (recursive polling, a
+  bounded-retry give-up path, `sessionStorage` resume), so it's the best remaining candidate for a dedicated test,
+  ahead of anything else on this list.
+- **Exercise the `Idempotency-Key` mechanism from the client**, not just implement it server-side — right now every
+  submit generates a fresh key, so a genuine transport-level retry (as opposed to a user-triggered "Retry (N)", which
+  is deliberately a new request against a smaller subset) never actually replays one. A single automatic retry on a
+  network-level failure, reusing the same key, would make the existing server-side idempotency cache do real work
+  instead of sitting unexercised.
 
 ## 🧪 Tests
 
 The single piece of logic under test is the selection reducer
-(`features/tickets/lib/selection.test.ts`) — it's the only logic in this project where a bug is both silent and
+(`features/tickets/utils/selection.test.ts`) — it's the only logic in this project where a bug is both silent and
 destructive (a bulk action running against the wrong set of ids), and the brief itself points at this exact spot
 ("test the selection logic across pagination"). Cases covered:
 
@@ -186,64 +258,12 @@ destructive (a bulk action running against the wrong set of ids), and the brief 
 This is **Bulk Actions Table**, built on an enterprise-ready Next.js foundation. The rest of this document covers
 the underlying tooling and conventions.
 
-## ✨ Features
+## ✨ Tech Stack
 
-### 🏗️ Core Technologies
-
-- [![Next.js](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/next?logo=nextdotjs&logoColor=white&label=Next.js)](https://nextjs.org/)
-  — App Router, Server Components, Server Actions, and Turbopack for fast builds
-- [![React](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/react?logo=react&logoColor=white&label=React)](https://react.dev/)
-  — React 19 with React Compiler for automatic memoization without manual optimization
-- [![TypeScript](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/typescript?logo=typescript&logoColor=white&label=TypeScript)](https://www.typescriptlang.org/)
-  — Strict mode with `ts-reset` library for ultimate type safety
-- [![Tailwind CSS](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/tailwindcss?logo=tailwindcss&logoColor=white&label=Tailwind%20CSS)](https://tailwindcss.com/)
-  — CSS-first configuration with design tokens and utility-first styling
-- [![Design System](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/@szum-tech/design-system?label=Design%20System)](https://szum-tech-design-system.vercel.app/)
-  — Pre-built accessible components and design tokens from Szum-Tech
-- [![Zod](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/zod?logo=zod&logoColor=white&label=Zod)](https://zod.dev/)
-  — TypeScript-first schema validation
-- [![React Hook Form](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/react-hook-form?label=React%20Hook%20Form)](https://react-hook-form.com/)
-  — Performant forms with easy validation
-- **🎯 Absolute imports** — `~/` path alias for clean, spaghetti-free imports
-
-### 🧪 Testing & Quality
-
-- [![Vitest](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/vitest?logo=vitest&logoColor=white&label=Vitest)](https://vitest.dev/)
-  — Rock-solid, high-speed unit and integration tests with browser mode
-- [![React Testing Library](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/@testing-library/react?label=React%20Testing%20Library)](https://testing-library.com/react)
-  — Component testing with accessibility-first queries
-- [![Playwright](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/@playwright/test?logo=playwright&logoColor=white&label=Playwright)](https://playwright.dev/)
-  — End-to-end tests with cross-browser support and Playwright UI
-- [![Storybook](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/storybook?logo=storybook&logoColor=white&label=Storybook)](https://storybook.js.org/)
-  — Component development, documentation, and interaction testing
-- [![Biome](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/@biomejs/biome?logo=biome&logoColor=white&label=Biome)](https://biomejs.dev/)
-  — All-in-one linter and formatter replacing ESLint + Prettier
-
-### 🤖 Automation & DevOps
-
-- [![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?logo=github-actions&logoColor=white)](https://github.com/features/actions)
-  — Pre-configured CI/CD workflows (PR checks, CodeQL, semantic releases)
-- [![Semantic Release](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/dev/semantic-release?label=Semantic%20Release)](https://github.com/semantic-release/semantic-release)
-  — Automated versioning and CHANGELOG generation via Conventional Commits
-- [![Dependabot](https://img.shields.io/badge/Dependabot-025E8C?logo=dependabot&logoColor=white)](https://github.com/dependabot)
-  — Automated dependency security updates
-
-### 🔧 Developer Experience
-
-- [![T3 Env](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/@t3-oss/env-nextjs?label=T3%20Env)](https://env.t3.gg/)
-  — Type-safe environment variable management with build-time validation
-- **📊 Bundle Analyzer** — Built-in Next.js 16 `next experimental-analyze` command for Client, Server, and Edge bundle
-  size analysis (no extra dependency required)
-- [![Pino](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/pino?label=Pino)](https://getpino.io/)
-  — High-performance structured JSON logging with automatic request tracking
-- [![next-themes](https://img.shields.io/github/package-json/dependency-version/JanSzewczyk/bulk-actions-table/next-themes?label=next-themes)](https://github.com/pacocoursey/next-themes)
-  — Dark/light/system theme switching with localStorage persistence
-- **⚕️ Health Checks** — Kubernetes-compatible endpoint at `/api/health` with aliases `/healthz`, `/health`, `/ping`
-- **🔒 Server-only Guards** — Prevents server code from leaking into client bundles
-
-### 🏆 Performance
-
-- **⚡ React Compiler** — Automatic memoization without `useMemo`/`useCallback`/`memo` boilerplate
+Next.js 16 (App Router, Server Components/Actions, Turbopack, React Compiler) · React 19 · TypeScript (strict) ·
+Tailwind CSS 4 + `@szum-tech/design-system` · Zod · Vitest + Storybook + Playwright · Biome (lint/format) · Pino
+(structured logging) · T3 Env (type-safe env vars) · `next-themes` · GitHub Actions (CI, CodeQL, semantic-release).
+Details on each are further down (env vars, logging, testing, CI) for anyone extending the project.
 
 ---
 
@@ -254,9 +274,10 @@ the underlying tooling and conventions.
 - [📡 API Contract](#-api-contract)
 - [⚠️ Partial Failure](#️-partial-failure)
 - [🤖 AI Moments](#-ai-moments)
+- [🧭 Decisions](#-decisions)
 - [🔭 With More Time](#-with-more-time)
 - [🧪 Tests](#-tests)
-- [✨ Features](#-features)
+- [✨ Tech Stack](#-tech-stack)
 - [🎯 Getting Started](#-getting-started)
 - [🚀 Deployment](#-deployment)
 - [📃 Scripts Overview](#-scripts-overview)
@@ -276,58 +297,14 @@ the underlying tooling and conventions.
 
 ## 🎯 Getting Started
 
-### 📋 Prerequisites
+Covered already in [🏁 How to Run](#-how-to-run) above (`npm ci && npm run dev`, or `npm run docker:up` for a
+single-command containerized run). Requires Node.js 24.x, npm, and Git.
 
-Before you begin, ensure you have the following installed:
+An optional `.env.local` can override defaults — see [💻 Environment Variables](#-environment-variables)
+(`BULK_ASYNC_THRESHOLD`, `LOG_LEVEL`, etc.).
 
-- **Node.js** (version 24.x or higher)
-- **npm** package manager
-- **Git** for version control
-
-### 📦 Installation
-
-#### 1. Clone the Repository
-
-```bash
-git clone https://github.com/JanSzewczyk/bulk-actions-table.git
-cd bulk-actions-table
-```
-
-#### 2. Install Dependencies
-
-```bash
-npm ci
-```
-
-#### 3. Configure Environment Variables
-
-Create a `.env.local` file in the root directory:
-
-```env
-# Add your environment variables here
-# NEXT_PUBLIC_API_URL=your_api_url
-# LOG_LEVEL=debug
-```
-
-#### 4. Start Development Server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) to view the app. You can start editing by modifying `app/page.tsx` —
-the page auto-updates as you edit.
-
-### Optional Configuration
-
-#### Semantic Release Setup
-
-To enable automated releases with [Semantic Release](https://github.com/semantic-release/semantic-release):
-
-1. Open `.github/workflows/release.yml`
-2. Uncomment lines 26–30
-3. Enjoy automated versioning and changelog generation
-   ([more details](https://www.npmjs.com/package/@szum-tech/semantic-release-config))
+To enable automated releases via [Semantic Release](https://github.com/semantic-release/semantic-release), uncomment
+lines 26–30 in `.github/workflows/release.yml`.
 
 ---
 
@@ -795,7 +772,7 @@ If you have any questions, suggestions, or issues:
 
 <div align="center">
 
-**Made with ❤️ by [Szum-Tech](https://github.com/szum-tech)**
+**Made with ❤️ by [JanSzewczyk](https://github.com/JanSzewczyk)**
 
 [⬆ Back to Top](#-bulk-actions-table)
 

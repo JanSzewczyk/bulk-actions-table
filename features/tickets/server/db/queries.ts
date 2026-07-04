@@ -1,5 +1,6 @@
 import "server-only";
 
+import { UNASSIGNED_TEAMMATE_ID } from "~/features/tickets/constants";
 import type { FailureItem } from "~/features/tickets/types/bulk";
 import type { Job } from "~/features/tickets/types/job";
 import type { TableFilter, TableQuery, TicketSortField } from "~/features/tickets/types/table-query";
@@ -29,6 +30,14 @@ function matchesFilter(ticket: Ticket, filter: TableFilter): boolean {
     const needle = filter.q.toLowerCase();
     const haystack = `${ticket.subject} ${ticket.customer}`.toLowerCase();
     if (!haystack.includes(needle)) {
+      return false;
+    }
+  }
+  if (filter.assigneeIds !== null && filter.assigneeIds.length > 0) {
+    const matchesAssignee = filter.assigneeIds.some((id) =>
+      id === UNASSIGNED_TEAMMATE_ID ? ticket.assigneeId === null : ticket.assigneeId === id
+    );
+    if (!matchesAssignee) {
       return false;
     }
   }

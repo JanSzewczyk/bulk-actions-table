@@ -9,6 +9,8 @@ import type { Pagination } from "./table-query";
 
 export const JobStatus = {
   COMPLETED: "completed",
+  /** The runner threw before finishing — terminal, so polling stops instead of waiting forever. */
+  FAILED: "failed",
   RUNNING: "running"
 } as const;
 
@@ -28,6 +30,8 @@ export type Job = JobProgress & {
   id: string;
   action: BulkAction;
   failures: Array<FailureItem>;
+  /** `Date.now()` at creation — server-only, used to evict finished jobs after a retention window. */
+  createdAt: number;
 };
 
 /** Response shape of `GET /api/jobs/:id/failures`. */

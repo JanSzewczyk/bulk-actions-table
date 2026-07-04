@@ -3,28 +3,56 @@
 import { Button } from "@szum-tech/design-system/components/button";
 import { ArchiveIcon, Trash2Icon, XIcon } from "lucide-react";
 import * as React from "react";
-import { UNDO_WINDOW_MS } from "~/features/tickets/constants";
-import { useSelection } from "~/features/tickets/hooks/use-selection";
-import { hasSelection, selectionCount } from "~/features/tickets/lib/selection";
-import { formatCount } from "~/features/tickets/lib/ticket-presentation";
+import { UNASSIGNED_TEAMMATE_ID, UNDO_WINDOW_MS } from "~/features/tickets/constants";
+import { useSelection } from "~/features/tickets/context/selection.context";
 import { BulkAction, type BulkRequest } from "~/features/tickets/types/bulk";
 import { SelectionMode } from "~/features/tickets/types/selection";
+import type { TableFilter } from "~/features/tickets/types/table-query";
 import type { Teammate } from "~/features/tickets/types/teammate";
+import { hasSelection, selectionCount } from "~/features/tickets/utils/selection";
+import { formatCount, STATUS_LABELS } from "~/features/tickets/utils/ticket-presentation";
+import type { ActionResponse } from "~/lib/action-types";
 import { AssignPopover } from "./assign-popover";
 import { ConfirmDialog } from "./confirm-dialog";
 
 type BulkToolbarProps = {
   /** Total rows matching the active filter — needed to count an `all` selection. */
   total: number;
+  /** The active filter — echoed in the `all`-mode confirmation dialog so its scope isn't ambiguous. */
+  filter: TableFilter;
   /** How many picked ids fall outside the current filter (include mode only). */
   outsideFilterCount: number;
   teammates: Array<Teammate>;
   /** True while a sync request is in flight. */
   isSubmitting: boolean;
-  /** True while an async job from a previous action is still running (D14 — blocks starting another). */
+  /** True while an async job from a previous action is still running — blocks starting another. */
   jobRunning: boolean;
   onSubmit(request: BulkRequest): void;
+  /**
+   * Re-counts tickets matching `filter` right before an `all`-mode confirmation dialog opens. `total`
+   * is a snapshot from the last RSC render — it can go stale between that render and the click, so the
+   * dialog shows this fresh count instead once it resolves.
+   */
+  onRefreshMatchingCountAction(filter: TableFilter): ActionResponse<number>;
 };
+
+/** Describes an active filter's scope for a confirmation dialog, e.g. " Matches status: Open, search: "invoice"." */
+function describeFilterScope(filter: TableFilter, teammateById: Map<string, Teammate>): string {
+  const parts: Array<string> = [];
+  if (filter.status !== null) {
+    parts.push(`status: ${STATUS_LABELS[filter.status]}`);
+  }
+  if (filter.q !== null && filter.q.length > 0) {
+    parts.push(`search: "${filter.q}"`);
+  }
+  if (filter.assigneeIds !== null && filter.assigneeIds.length > 0) {
+    const names = filter.assigneeIds.map((id) =>
+      id === UNASSIGNED_TEAMMATE_ID ? "Unassigned" : (teammateById.get(id)?.name ?? id)
+    );
+    parts.push(`assignee: ${names.join(", ")}`);
+  }
+  return parts.length > 0 ? ` Matches ${parts.join(", ")} — not just the current page.` : "";
+}
 
 type PendingConfirmation = { action: BulkAction; assigneeId?: string };
 
@@ -37,14 +65,22 @@ type PendingConfirmation = { action: BulkAction; assigneeId?: string };
  */
 export function BulkToolbar({
   total,
+  filter,
   outsideFilterCount,
   teammates,
   isSubmitting,
   jobRunning,
-  onSubmit
+  onSubmit,
+  onRefreshMatchingCountAction
 }: BulkToolbarProps) {
   const { selection, dispatch } = useSelection();
   const [pendingAction, setPendingAction] = React.useState<PendingConfirmation | null>(null);
+  // Fresh `total` for the currently-open `all`-mode confirmation, fetched via
+  // `onRefreshMatchingCountAction`. `null` until it resolves, so the dialog opens immediately with the
+  // stale `total` prop and swaps in the real count as soon as it's known.
+  const [refreshedTotal, setRefreshedTotal] = React.useState<number | null>(null);
+  // Guards against a stale response from a previous confirmation overwriting a newer one.
+  const refreshRequestIdRef = React.useRef(0);
   // Whatever's focused when a confirmation opens (the Archive/Delete button, or the assign-popover
   // item) — restored on close via ConfirmDialog's `onCloseAutoFocus` (see there for why).
   const lastTriggerRef = React.useRef<HTMLElement | null>(null);
@@ -55,6 +91,7 @@ export function BulkToolbar({
 
   const count = selectionCount(selection, total);
   const actionsDisabled = isSubmitting || jobRunning;
+  const teammateById = new Map(teammates.map((teammate) => [teammate.id, teammate]));
 
   function buildRequest(action: BulkAction, assigneeId: string | undefined): BulkRequest {
     if (selection.mode === SelectionMode.INCLUDE) {
@@ -72,6 +109,18 @@ export function BulkToolbar({
   function openConfirmation(pending: PendingConfirmation) {
     lastTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setPendingAction(pending);
+
+    if (selection.mode === SelectionMode.ALL) {
+      setRefreshedTotal(null);
+      const requestId = ++refreshRequestIdRef.current;
+      onRefreshMatchingCountAction(filter)
+        .then((result) => {
+          if (result.success && requestId === refreshRequestIdRef.current) {
+            setRefreshedTotal(result.data);
+          }
+        })
+        .catch(() => undefined);
+    }
   }
 
   function requestArchive() {
@@ -116,10 +165,19 @@ export function BulkToolbar({
   }
 
   const isDeleteConfirmation = pendingAction?.action === BulkAction.DELETE;
+  const isAllModeConfirmation = selection.mode === SelectionMode.ALL;
+  // Use the freshly re-counted total once it resolves so the dialog can't understate/overstate the
+  // scope of an `all`-mode action versus what the server will actually process.
+  const dialogCount = isAllModeConfirmation ? selectionCount(selection, refreshedTotal ?? total) : count;
   const confirmTitle = isDeleteConfirmation ? "Delete selected tickets" : "Confirm bulk-wide action";
   const confirmDescription = isDeleteConfirmation
-    ? `This can't be undone after ${Math.round(UNDO_WINDOW_MS / 1000)}s. Delete ${formatCount(count)} tickets?`
-    : `This will affect all ${formatCount(count)} matching tickets, not just the current page.`;
+    ? `This can't be undone after ${Math.round(UNDO_WINDOW_MS / 1000)}s. Delete ${formatCount(dialogCount)} tickets?` +
+      (isAllModeConfirmation
+        ? describeFilterScope(filter, teammateById)
+        : outsideFilterCount > 0
+          ? ` ${outsideFilterCount} of them are outside the current filter.`
+          : "")
+    : `This will affect all ${formatCount(dialogCount)} matching tickets, not just the current page.${describeFilterScope(filter, teammateById)}`;
 
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-card px-4 py-2 shadow-sm">

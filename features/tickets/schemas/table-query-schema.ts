@@ -9,7 +9,17 @@ import { TicketStatus } from "~/features/tickets/types/ticket";
  * renders, and a bad `?page=abc` simply falls back to page 1. `sort`/`direction` are absent from a
  * pristine URL and fall back to `null` (unsorted), not a hidden default sort.
  */
+/** `?assigneeIds=u1,u2,unassigned` — a single comma-joined param, since repeated `assigneeIds=` params
+ * would collide with `parseTableQuery`'s array-to-first-value normalization below. */
+function parseAssigneeIds(value: string): Array<string> {
+  return value
+    .split(",")
+    .map((id) => id.trim())
+    .filter((id) => id.length > 0);
+}
+
 export const tableQuerySchema = z.object({
+  assigneeIds: z.string().trim().min(1).transform(parseAssigneeIds).nullable().catch(null),
   direction: z.enum(SortDirection).nullable().catch(null),
   page: z.coerce.number().int().positive().catch(1),
   q: z.string().trim().min(1).nullable().catch(null),

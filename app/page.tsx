@@ -1,16 +1,16 @@
 import { Header } from "@szum-tech/design-system/components/header";
 import type { Metadata } from "next";
 import * as React from "react";
-import { GithubLinkButton } from "~/components/ui/github-link-button";
 import { ThemeToggle } from "~/components/ui/theme-toggle";
 import { DevPanel, DevPanelFallback, TicketsTableSection } from "~/features/tickets/components";
-import { SelectionProvider } from "~/features/tickets/hooks/use-selection";
+import { SelectionProvider } from "~/features/tickets/context/selection.context";
 import { parseTableQuery } from "~/features/tickets/schemas";
 import { getTeammates, getTicketsPage } from "~/features/tickets/server";
 import { bulkActionAction } from "~/features/tickets/server/actions/bulk-action.action";
 import { getJobFailedIdsAction } from "~/features/tickets/server/actions/get-job-failed-ids.action";
 import { outsideFilterCountAction } from "~/features/tickets/server/actions/outside-filter-count.action";
 import { pollJobAction } from "~/features/tickets/server/actions/poll-job.action";
+import { refreshMatchingCountAction } from "~/features/tickets/server/actions/refresh-matching-count.action";
 import { createLogger } from "~/lib/logger";
 
 export const metadata: Metadata = {
@@ -53,7 +53,6 @@ export default async function TicketsPage({ searchParams }: PageProps<"/">) {
           <span className="font-semibold text-body-sm">Bulk Actions Table</span>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <GithubLinkButton />
           </div>
         </div>
       </Header>
@@ -76,6 +75,7 @@ export default async function TicketsPage({ searchParams }: PageProps<"/">) {
             onGetJobFailedIdsAction={getJobFailedIdsAction}
             onOutsideFilterCountAction={outsideFilterCountAction}
             onPollJobAction={pollJobAction}
+            onRefreshMatchingCountAction={refreshMatchingCountAction}
             pagination={page.pagination}
             query={query}
             teammates={teammates}

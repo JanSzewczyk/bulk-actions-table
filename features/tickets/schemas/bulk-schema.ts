@@ -16,6 +16,7 @@ export const simulationParamsSchema = z.object({
 });
 
 export const tableFilterSchema = z.object({
+  assigneeIds: z.array(z.string().min(1)).nullable(),
   q: z.string().trim().min(1).nullable(),
   status: z.enum(TicketStatus).nullable()
 });
