@@ -228,7 +228,7 @@ export type SelectionAction =
   | { type: "REMOVE_IDS"; ids: ReadonlyArray<string> }
   | { type: "CLEAR" };
 
-/** Thin dispatcher over the pure operations, for the `useReducer` store in `hooks/use-selection.ts`. */
+/** Thin dispatcher over the pure operations, for the `useReducer` store in `context/selection.context.tsx`. */
 export function selectionReducer(state: SelectionState, action: SelectionAction): SelectionState {
   switch (action.type) {
     case "TOGGLE_ROW":

@@ -80,16 +80,19 @@ Row selection is a hybrid of two representations, not a single `Set<id>`:
 
 A plain `Set<id>` can't represent "all matching, minus a few" without enumerating every id; a page-scoped selection
 can't answer "select all matching" at all. The reducer (`features/tickets/utils/selection.ts`) is pure and framework-free
-— a `useReducer` + Context wraps it (`use-selection.ts`) so the selection survives `router.refresh()` and filter/page
-navigation without being tied to the query cache.
+— a `useReducer` + Context wraps it (`context/selection.context.tsx`) so the selection survives `router.refresh()` and
+filter/page navigation without being tied to the query cache.
 
 Behavior across navigation:
 
-| Event                     | `include` mode                          | `all` mode                                    |
-| -------------------------- | ---------------------------------------- | ---------------------------------------------- |
-| Change page / sort         | Selection untouched (ids persist)        | Selection untouched (scoped to the filter, not the page) |
-| Change filter (search/status) | Selection untouched — a toast reports how many picked ids now fall "outside the current filter" | Resets to empty — an `all` selection is only meaningful for the filter it was made under |
-| Toggle a row               | Add/remove from the id set                | Add/remove from `excluded`                     |
+| Event                             | `include` mode                          | `all` mode                                    |
+| ---------------------------------- | ---------------------------------------- | ---------------------------------------------- |
+| Change page / sort                 | Selection untouched (ids persist)        | Selection untouched (scoped to the filter, not the page) |
+| Change filter (search/status/assignee) | Selection untouched — a toast reports how many picked ids now fall "outside the current filter" | Resets to empty — an `all` selection is only meaningful for the filter it was made under |
+| Toggle a row                       | Add/remove from the id set                | Add/remove from `excluded`                     |
+
+The filter that scopes an `all` selection is `{ status, q, assigneeIds }` — status, free-text search, and
+teammate/unassigned filtering all count toward "the current filter" equally.
 
 ## 📡 API Contract
 
@@ -102,7 +105,7 @@ Idempotency-Key: <uuid>   ← required; a retried submit with the same key retur
 { "action": "archive" | "assign" | "unassign" | "delete" | "restore",
   "assigneeId"?: string,               // required when action = "assign"
   "mode": "include", "ids": string[] } |
-  "mode": "all", "filter": { q, status }, "excluded": string[] }
+  "mode": "all", "filter": { q, status, assigneeIds }, "excluded": string[] }
 ```
 
 **Deliberately not in this payload:** `failureRate`, `seed`, and `concurrency`. An earlier draft of the contract
@@ -237,10 +240,9 @@ on those two.
 
 ## 🧪 Tests
 
-The single piece of logic under test is the selection reducer
-(`features/tickets/utils/selection.test.ts`) — it's the only logic in this project where a bug is both silent and
-destructive (a bulk action running against the wrong set of ids), and the brief itself points at this exact spot
-("test the selection logic across pagination"). Cases covered:
+The main piece of logic under unit test is the selection reducer (`features/tickets/utils/selection.test.ts`) — it's
+the logic in this project where a bug is both silent and destructive (a bulk action running against the wrong set of
+ids), and the brief itself points at this exact spot ("test the selection logic across pagination"). Cases covered:
 
 - Toggling a row in `include` mode (add/remove) and in `all` mode (moves in/out of `excluded`); reducer never
   mutates its input state.
@@ -252,6 +254,15 @@ destructive (a bulk action running against the wrong set of ids), and the brief 
 - Header checkbox tri-state (`pageCheckboxState`): unchecked / checked / indeterminate / empty-page, including
   `all`-mode exclusions.
 - A full end-to-end flow: select page → escalate to all → deselect one → clear.
+
+`features/tickets/utils/bulk-outcome.test.ts` separately covers the outcome-copy/request-building helpers (retry and
+restore request builders, all the toast message formatters) — lower-stakes than the reducer since a wrong string is
+visible and harmless, but still worth pinning down since these format strings the demo script and partial-failure UX
+depend on verbatim.
+
+Playwright E2E (`tests/e2e/`) covers ticket-table selection/sorting mechanics and the Dev panel's simulation-settings
+sheet, but not yet the full bulk pipeline — see [🔭 With More Time](#-with-more-time) for the still-missing
+select → escalate → async job → partial failure → retry E2E coverage.
 
 ---
 
@@ -304,7 +315,7 @@ An optional `.env.local` can override defaults — see [💻 Environment Variabl
 (`BULK_ASYNC_THRESHOLD`, `LOG_LEVEL`, etc.).
 
 To enable automated releases via [Semantic Release](https://github.com/semantic-release/semantic-release), uncomment
-lines 26–30 in `.github/workflows/release.yml`.
+the `Create release` step (currently lines 29–34) in `.github/workflows/release.yml`.
 
 ---
 
@@ -618,6 +629,7 @@ Runs on every pull request and validates:
 - Merged coverage comment on PR
 - Playwright E2E tests
 - Dependency review — security audit of dependency changes
+- React Doctor — automated React-specific static analysis, diffed against `main`
 
 ### 🔒 CodeQL (`codeql.yml`)
 
@@ -682,13 +694,13 @@ bulk-actions-table/
 ├── features/             # Feature-based modules (components, schemas, server)
 ├── lib/                  # Utility functions and configurations (logger)
 ├── public/               # Static assets (images, icons, SVGs)
-├── stories/              # Standalone Storybook stories
 ├── tests/
 │   ├── e2e/              # Playwright end-to-end tests
 │   ├── integration/      # Storybook integration test setup
 │   └── unit/             # Vitest unit tests
 ├── types/                # Global TypeScript type declarations
-├── utils/                # Shared utility functions
+├── utils/                # Reserved for cross-feature shared utilities (currently empty — feature-scoped
+│                         # logic lives in features/*/utils/ instead, e.g. features/tickets/utils/)
 ├── biome.json            # Biome linter and formatter configuration
 ├── docker-compose.yml    # Single-command Docker build and run
 ├── Dockerfile            # Multi-stage production Docker image
