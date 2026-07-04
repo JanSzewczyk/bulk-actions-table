@@ -8,7 +8,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # ---------------------------------------------------------------------------
 # 2. builder — build the Next.js standalone output
@@ -24,7 +24,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # build and rely on real runtime env vars being supplied to the container.
 ENV SKIP_ENV_VALIDATION=true
 
-RUN npm run build
+RUN --mount=type=cache,target=/app/.next/cache npm run build
 
 # ---------------------------------------------------------------------------
 # 3. runner — minimal production image, non-root user
